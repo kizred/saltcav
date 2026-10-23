@@ -2,7 +2,8 @@
 
 > Живой документ. Меняется подход — правим паспорт и записываем решение в
 > [`decisions.md`](decisions.md). Текущее состояние работ — в [`progress.md`](progress.md),
-> детальный план ПО — в [`software-plan.md`](software-plan.md).
+> детальный план ПО — в [`software-plan.md`](software-plan.md), аналоги и литература —
+> в [`literature.md`](literature.md).
 
 ## Цель, задачи и результаты
 
