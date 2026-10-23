@@ -1,0 +1,31 @@
+# Бенчмарк против SANSMIC: прямоток в цилиндрической затравке.
+# Тот же сценарий для SANSMIC — benchmarks/sansmic/run_reference.py.
+name: sansmic-benchmark-direct
+
+grid:
+  z_top_m: 1000
+  z_bottom_m: 1100
+  nz: 100            # ячейки по 1 м, как в SANSMIC (num_cells = 100)
+  nphi: 1
+  r_borehole_m: 5.0  # начальная камера — цилиндр R = 5 м
+
+geology:
+  insoluble_fraction: 0.04
+  bulking_factor: 1.5
+  salt_density_kg_m3: 2160
+
+schedule:
+  stages:
+    - duration_days: 100
+      mode: direct
+      rate_m3_per_h: 50          # 1200 м³/сут
+      injection_depth_m: 1090
+      production_depth_m: 1020
+      blanket_depth_m: 1010
+
+leaching:
+  temperature_c: 25
+  initial_saturation: 1.0        # камера заполнена насыщенным рассолом (sg 1.2019)
+  tubing_radius_m: 0.0889        # 7" НКТ, внутренний диаметр 17,78 см
+  output_every_days: 1
+  dt_max_days: 0.25

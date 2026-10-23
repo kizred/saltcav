@@ -11,7 +11,8 @@
 Шаг выбирается адаптивно: условие КФЛ для стенки, верхняя граница dt_max,
 граница ступени режима, ограничение роста объёма ΔV ≤ доля·Q·dt (иначе отбор
 становится отрицательным) и запрет пересыщения: за шаг в слой не может
-перейти больше соли, чем примет его рассол до C_s. Последнее важно в начале,
+перейти больше соли, чем примет до C_s рассол, бывший в слое до шага (прирост
+объёма заполняется рассолом соседей). Последнее важно в начале,
 когда объёмы слоёв у скважины малы, а площадь стенки относительно велика.
 Связь явная, первый порядок по времени.
 
@@ -26,7 +27,14 @@ f_ins растворённой породы оседает на дно насы�
 Башмак, оказавшийся в насыпи, переносится на первый слой над ней (как подъём
 колонны на промысле); число таких шагов пишется в историю.
 
-Ограничения этой версии: струя из колонны не моделируется, прослоев нет.
+Струя и плюм (:mod:`saltcav.leaching.plume`, включено по умолчанию): пресная вода
+выходит из башмака вниз, разворачивается, всплывает с вовлечением рассола и
+отдаётся на уровне нейтральной плавучести; перенос — неявная консервативная
+схема с обратным течением между слоями. При ``plume: false`` — прежняя модель
+переноса от закачки к отбору с мгновенным перемешиванием.
+
+Ограничения этой версии: прослоев нет, турбулентная диффузия между слоями не
+учитывается (её роль частично играет перемешивание неустойчивых слоёв).
 """
 
 from __future__ import annotations
@@ -40,9 +48,10 @@ from saltcav.core import brine
 from saltcav.core.config import RunConfig
 from saltcav.core.units import days_to_seconds
 from saltcav.geometry import Cavern, CavernGrid
-from saltcav.leaching.brine_column import column_step
+from saltcav.leaching.brine_column import column_step, plume_transport_step, stabilize
 from saltcav.leaching.dissolution import DissolutionLaw, node_concentration, wall_growth_rate
 from saltcav.leaching.insolubles import first_buried_layer, floor_depth
+from saltcav.leaching.plume import plume_fluxes
 from saltcav.operations import Schedule
 
 FloatArray = NDArray[np.float64]
@@ -66,6 +75,7 @@ class History:
     insoluble_bulk: list[float] = field(default_factory=list)  # насыпной объём, м³
     n_steps: int = 0
     n_shoe_moves: int = 0  # шагов, где башмак пришлось поднять над насыпью
+    plume_deposit_depth: list[float] = field(default_factory=list)  # по шагам, м
 
     def record(self, t: float, cav: Cavern, c: FloatArray, state: _State) -> None:
         self.times.append(t)
@@ -152,9 +162,10 @@ def simulate(cfg: RunConfig) -> History:
                 dm = solid * (v_new - v_old)
                 growth = float(v_new.sum() - v_old.sum())
                 # 1) отбор не становится отрицательным; 2) явный шаг не растворяет больше,
-                # чем может принять рассол слоя (иначе C > C_s в тонких слоях у скважины)
+                # чем может принять рассол, бывший в слое до шага: прирост объёма
+                # заполняется рассолом соседей, а не пустотой (иначе C > C_s)
                 ok_growth = growth <= lp.max_growth_fraction * stage.q_in * dt
-                ok_sat = bool(np.all((v_old * c + dm) / v_new <= c_cap))
+                ok_sat = bool(np.all(v_old * c + dm <= c_cap * v_old))
                 if ok_growth and ok_sat:
                     break
                 if dt < MIN_DT:
@@ -167,10 +178,25 @@ def simulate(cfg: RunConfig) -> History:
                 hist.n_shoe_moves += 1
 
             # колонна рассола — слои между нерастворителем и насыпью
-            res = column_step(
-                c[kb:kf], v_old[kb:kf], v_new[kb:kf], dm[kb:kf], stage.q_in,
-                k_in - kb, k_out - kb, dt,
-            )  # fmt: skip
+            if lp.plume:
+                col = slice(kb, kf)
+                dz_col = grid.dz[col]
+                r_col = np.sqrt(v_old[col] / (np.pi * dz_col))  # эквивалентный радиус слоя
+                pl = plume_fluxes(
+                    c[col], dz_col, r_col, k_in - kb, stage.q_in,
+                    lp.tubing_radius_m, lp.entrainment_coeff, lp.temperature_c,
+                )  # fmt: skip
+                hist.plume_deposit_depth.append(float(grid.z_centers[kb + pl.k_deposit]))
+                raw = plume_transport_step(
+                    c[col], v_old[col], v_new[col], dm[col], stage.q_in,
+                    pl.entrained, pl.k_deposit, k_out - kb, dt,
+                )  # fmt: skip
+                res = type(raw)(stabilize(raw.c, v_new[col]), raw.produced_salt, raw.q_out)
+            else:
+                res = column_step(
+                    c[kb:kf], v_old[kb:kf], v_new[kb:kf], dm[kb:kf], stage.q_in,
+                    k_in - kb, k_out - kb, dt,
+                )  # fmt: skip
             c = np.concatenate([c[:kb], res.c, c[kf:]])
             cav = new_cav
             st.produced += res.produced_salt

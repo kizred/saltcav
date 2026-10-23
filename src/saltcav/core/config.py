@@ -102,16 +102,21 @@ class LeachingConfig(_Strict):
     """Параметры закона растворения и численной схемы.
 
     Поток соли со стенки: j = k0 · f(ψ) · C_s · u^n, u = (C_s − C)/C_s.
-    Значения по умолчанию — оценка по корреляции свободной турбулентной конвекции
-    (Sh ~ Ra^(1/3)); подлежат калибровке по физической модели и данным компании.
+    k0 по умолчанию подобран по бенчмарку SANSMIC (benchmarks/sansmic): объём камеры
+    совпадает в пределах 1 %. Оценка по корреляции свободной конвекции (Sh ~ Ra^(1/3))
+    даёт 1,5e-5 — тот же порядок. Это априорное значение: калибровать по физической
+    модели и данным компании.
     """
 
     temperature_c: Annotated[float, Field(ge=0, le=100)] = 30.0
-    k0_m_per_s: Positive = 1.5e-5
+    k0_m_per_s: Positive = 3.0e-5
     exponent: Positive = 4.0 / 3.0
     roof_ratio: Annotated[float, Field(ge=0)] = 1.5  # кровля / вертикальная стенка
     floor_ratio: Annotated[float, Field(ge=0)] = 0.0  # подошва / вертикальная стенка
     initial_saturation: Fraction = 1.0  # C₀/C_s рассола в скважине в начале
+    plume: bool = True  # струя и плюм от башмака закачки; False — мгновенное перемешивание
+    entrainment_coeff: Annotated[float, Field(ge=0, le=0.5)] = 0.09  # как в SANSMIC
+    tubing_radius_m: Positive = 0.1  # внутренний радиус колонны закачки
     cfl: Annotated[float, Field(gt=0, le=1)] = 0.5
     max_growth_fraction: Annotated[float, Field(gt=0, lt=1)] = 0.5  # ΔV ≤ доля·Q·dt
     dt_max_days: Positive = 1.0
