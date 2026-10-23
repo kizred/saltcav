@@ -35,20 +35,27 @@ def test_cavern_grows_monotonically(hist) -> None:  # type: ignore[no-untyped-de
 
 
 def test_salt_balance(hist) -> None:  # type: ignore[no-untyped-def]
-    # растворённое = прирост соли в рассоле + вынесенное с рассолом
-    cav0, cav1 = hist.cavern(0), hist.cavern(-1)
-    in_brine0 = float(np.dot(hist.concentration[0], cav0.layer_volumes().sum(axis=1)))
-    in_brine1 = float(np.dot(hist.concentration[-1], cav1.layer_volumes().sum(axis=1)))
-    lhs = hist.dissolved_salt[-1]
-    rhs = in_brine1 - in_brine0 + hist.produced_salt[-1]
-    assert lhs == pytest.approx(rhs, rel=1e-9)
+    # растворённое = прирост соли в камере (рассол + поры насыпи) + вынесенное
+    for i in range(1, len(hist.times)):
+        lhs = hist.dissolved_salt[i]
+        rhs = hist.salt_in_brine[i] - hist.salt_in_brine[0] + hist.produced_salt[i]
+        assert lhs == pytest.approx(rhs, rel=1e-9)
+
+
+def test_salt_balance_without_burial_matches_column_sum(hist) -> None:  # type: ignore[no-untyped-def]
+    # пока погребённых слоёв нет, соль в камере = Σ V·C по всем слоям
+    cav0 = hist.cavern(0)
+    direct = float(np.dot(hist.concentration[0], cav0.layer_volumes().sum(axis=1)))
+    assert hist.salt_in_brine[0] == pytest.approx(direct, rel=1e-12)
 
 
 def test_concentration_bounded_and_stable(hist) -> None:  # type: ignore[no-untyped-def]
     cs = float(brine.saturation_concentration(30.0))
-    for c in hist.concentration:
+    zc = hist.grid.z_centers
+    for c, z_floor in zip(hist.concentration, hist.floor_depth, strict=True):
         assert np.all(c >= 0) and np.all(c <= cs + 1e-9)
-        assert np.all(np.diff(c) >= -1e-9)  # устойчиво по плотности
+        free = c[zc < z_floor]  # свободный рассол над насыпью (в порах — неподвижный)
+        assert np.all(np.diff(free) >= -1e-9)  # устойчиво по плотности
 
 
 def test_no_dissolution_above_blanket(hist) -> None:  # type: ignore[no-untyped-def]
@@ -77,3 +84,58 @@ def test_brine_above_blanket_untouched() -> None:
     h = simulate(_short_config(initial_saturation=1.0))
     above = h.grid.z_centers < 1020.0
     np.testing.assert_array_equal(h.concentration[-1][above], h.concentration[0][above])
+
+
+# --- нерастворимые ----------------------------------------------------------------
+
+
+def _example(**geology: float) -> RunConfig:
+    raw = load_config(EXAMPLE).model_dump(mode="json")
+    raw["geology"].update(geology)
+    return RunConfig.model_validate(raw)
+
+
+@pytest.fixture(scope="module")
+def full():  # type: ignore[no-untyped-def]
+    return simulate(_example())
+
+
+def test_floor_rises_monotonically(full) -> None:  # type: ignore[no-untyped-def]
+    floors = np.array(full.floor_depth)
+    assert floors[0] == pytest.approx(1100.0)
+    assert np.all(np.diff(floors) <= 1e-9)  # подошва только поднимается
+    assert floors[-1] < 1095.0
+
+
+def test_bulk_volume_matches_dissolved_rock(full) -> None:  # type: ignore[no-untyped-def]
+    # насыпной объём = B · f_ins · (объём камеры − начальный)
+    geo = load_config(EXAMPLE).geology
+    grown = full.volume[-1] - full.volume[0]
+    expected = geo.bulking_factor * geo.insoluble_fraction * grown
+    assert full.insoluble_bulk[-1] == pytest.approx(expected, rel=1e-9)
+
+
+def test_salt_balance_with_burial(full) -> None:  # type: ignore[no-untyped-def]
+    lhs = full.dissolved_salt[-1]
+    rhs = full.salt_in_brine[-1] - full.salt_in_brine[0] + full.produced_salt[-1]
+    assert lhs == pytest.approx(rhs, rel=1e-9)
+
+
+def test_wall_below_floor_does_not_grow(full) -> None:  # type: ignore[no-untyped-def]
+    # всё, что засыпано к середине прогона, к концу не растёт
+    g = full.grid
+    i_mid = len(full.times) // 2
+    below = g.z_edges > full.floor_depth[i_mid] + 1.0  # с запасом в слой
+    np.testing.assert_allclose(full.radius[-1][below], full.radius[i_mid][below])
+
+
+def test_no_insolubles_no_floor() -> None:
+    h = simulate(_example(insoluble_fraction=0.0, insoluble_fraction_sd=0.0))
+    assert h.insoluble_bulk[-1] == 0.0
+    assert h.floor_depth[-1] == pytest.approx(1100.0)
+
+
+def test_more_insolubles_higher_floor() -> None:
+    lo = simulate(_example(insoluble_fraction=0.02))
+    hi = simulate(_example(insoluble_fraction=0.15))
+    assert hi.floor_depth[-1] < lo.floor_depth[-1]

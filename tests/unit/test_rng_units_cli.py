@@ -63,6 +63,7 @@ def test_cli_run_saves_history(tmp_path: Path, capsys: pytest.CaptureFixture[str
     data = np.load(out)
     assert data["radius_m"].shape[1:] == (201, 1)
     assert data["volume_m3"][-1] > data["volume_m3"][0]
+    assert data["floor_depth_m"][-1] < data["floor_depth_m"][0]  # насыпь подняла подошву
 
 
 def test_cli_run_bad_config() -> None:
