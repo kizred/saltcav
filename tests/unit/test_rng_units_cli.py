@@ -53,3 +53,17 @@ def test_cli_check_missing_file() -> None:
 def test_cli_version(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["version"]) == 0
     assert capsys.readouterr().out.strip()
+
+
+def test_cli_run_saves_history(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = tmp_path / "hist.npz"
+    assert main(["run", str(EXAMPLE), "--out", str(out)]) == 0
+    text = capsys.readouterr().out
+    assert "объём камеры" in text
+    data = np.load(out)
+    assert data["radius_m"].shape[1:] == (201, 1)
+    assert data["volume_m3"][-1] > data["volume_m3"][0]
+
+
+def test_cli_run_bad_config() -> None:
+    assert main(["run", "no_such_file.yaml"]) == 1

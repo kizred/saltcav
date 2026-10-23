@@ -1,6 +1,6 @@
 """Командная строка: ``saltcav <команда>``.
 
-Сейчас доступны ``version`` и ``check``; команды ``run``, ``ensemble``,
+Сейчас доступны ``version``, ``check`` и ``run``; команды ``ensemble``,
 ``mechanics``, ``calibrate``, ``report`` появятся на своих этапах.
 """
 
@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
+from pathlib import Path
 
+import numpy as np
 from pydantic import ValidationError
 
 from saltcav import __version__
@@ -30,12 +33,51 @@ def _cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_run(args: argparse.Namespace) -> int:
+    from saltcav.leaching import simulate  # импорт здесь: check и version не тянут модель
+
+    try:
+        cfg = load_config(args.config)
+    except (OSError, ValidationError, ValueError) as exc:
+        print(f"Ошибка в {args.config}:\n{exc}", file=sys.stderr)
+        return 1
+    t0 = time.perf_counter()
+    hist = simulate(cfg)
+    elapsed = time.perf_counter() - t0
+    cav = hist.cavern()
+    r = cav.radius
+    i_max = int(np.unravel_index(np.argmax(r), r.shape)[0])
+    print(f"«{cfg.name}»: {hist.times[-1] / 86_400:g} сут, {hist.n_steps} шагов, {elapsed:.2f} с")
+    print(f"  объём камеры      {hist.volume[-1]:12.0f} м³")
+    z_max = float(hist.grid.z_edges[i_max])
+    print(f"  макс. радиус      {float(np.max(r)):12.2f} м на глубине {z_max:.1f} м")
+    print(f"  растворено соли   {hist.dissolved_salt[-1] / 1e3:12.1f} т")
+    print(f"  вынесено рассолом {hist.produced_salt[-1] / 1e3:12.1f} т")
+    if args.out:
+        out = Path(args.out)
+        np.savez_compressed(
+            out,
+            times_s=np.array(hist.times),
+            z_edges_m=hist.grid.z_edges,
+            radius_m=np.array(hist.radius),
+            concentration_kg_m3=np.array(hist.concentration),
+            volume_m3=np.array(hist.volume),
+            produced_salt_kg=np.array(hist.produced_salt),
+            dissolved_salt_kg=np.array(hist.dissolved_salt),
+        )
+        print(f"  история сохранена в {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("version", help="версия пакета")
     p_check = sub.add_parser("check", help="проверить YAML-конфигурацию")
     p_check.add_argument("config", help="путь к YAML")
+    p_run = sub.add_parser("run", help="детерминированный прогон одной камеры")
+    p_run.add_argument("config", help="путь к YAML")
+    p_run.add_argument("--out", help="сохранить историю в .npz")
 
     args = parser.parse_args(argv)
     if args.command == "version":
@@ -43,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "check":
         return _cmd_check(args)
+    if args.command == "run":
+        return _cmd_run(args)
     return 2  # pragma: no cover
 
 

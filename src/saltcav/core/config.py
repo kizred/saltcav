@@ -98,11 +98,32 @@ class EnsembleConfig(_Strict):
     sampler: str = Field(default="mc", pattern="^(mc|lhs|sobol)$")
 
 
+class LeachingConfig(_Strict):
+    """Параметры закона растворения и численной схемы.
+
+    Поток соли со стенки: j = k0 · f(ψ) · C_s · u^n, u = (C_s − C)/C_s.
+    Значения по умолчанию — оценка по корреляции свободной турбулентной конвекции
+    (Sh ~ Ra^(1/3)); подлежат калибровке по физической модели и данным компании.
+    """
+
+    temperature_c: Annotated[float, Field(ge=0, le=100)] = 30.0
+    k0_m_per_s: Positive = 1.5e-5
+    exponent: Positive = 4.0 / 3.0
+    roof_ratio: Annotated[float, Field(ge=0)] = 1.5  # кровля / вертикальная стенка
+    floor_ratio: Annotated[float, Field(ge=0)] = 0.0  # подошва / вертикальная стенка
+    initial_saturation: Fraction = 1.0  # C₀/C_s рассола в скважине в начале
+    cfl: Annotated[float, Field(gt=0, le=1)] = 0.5
+    max_growth_fraction: Annotated[float, Field(gt=0, lt=1)] = 0.5  # ΔV ≤ доля·Q·dt
+    dt_max_days: Positive = 1.0
+    output_every_days: Positive = 10.0
+
+
 class RunConfig(_Strict):
     name: str
     grid: GridConfig
     geology: GeologyConfig = GeologyConfig()
     schedule: ScheduleConfig
+    leaching: LeachingConfig = LeachingConfig()
     ensemble: EnsembleConfig = EnsembleConfig()
 
     @model_validator(mode="after")
