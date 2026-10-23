@@ -36,7 +36,8 @@ def layer_index(grid: CavernGrid, depth: float) -> int:
     z = grid.z_edges
     if not z[0] <= depth <= z[-1]:
         raise ValueError(f"глубина {depth} вне сетки [{z[0]}, {z[-1]}]")
-    return int(min(np.searchsorted(z, depth, side="right") - 1, grid.nz - 1))
+    k = int(np.searchsorted(z, depth, side="right")) - 1
+    return min(k, grid.nz - 1)
 
 
 @dataclass(frozen=True)
