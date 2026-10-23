@@ -19,8 +19,14 @@
 заняты нерастворителем и в переносе не участвуют. При подъёме нерастворителя
 освободившиеся слои входят в колонну со своей последней концентрацией.
 
-Ограничения этой версии: нерастворимые не накапливаются на подошве (их объём
-пока считается рассолом), струя из колонны не моделируется, прослоев нет.
+Нерастворимые (:mod:`saltcav.leaching.insolubles`): каждый шаг твёрдая доля
+f_ins растворённой породы оседает на дно насыпью с коэффициентом разрыхления B.
+Слои, погребённые насыпью, выходят из колонны: твёрдое вытесняет к отбору долю
+1/B их рассола, остальное остаётся в порах. Стенка ниже насыпи не растворяется.
+Башмак, оказавшийся в насыпи, переносится на первый слой над ней (как подъём
+колонны на промысле); число таких шагов пишется в историю.
+
+Ограничения этой версии: струя из колонны не моделируется, прослоев нет.
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ from saltcav.core.units import days_to_seconds
 from saltcav.geometry import Cavern, CavernGrid
 from saltcav.leaching.brine_column import column_step
 from saltcav.leaching.dissolution import DissolutionLaw, node_concentration, wall_growth_rate
+from saltcav.leaching.insolubles import first_buried_layer, floor_depth
 from saltcav.operations import Schedule
 
 FloatArray = NDArray[np.float64]
@@ -54,17 +61,22 @@ class History:
     volume: list[float] = field(default_factory=list)  # м³
     produced_salt: list[float] = field(default_factory=list)  # накоплено, кг
     dissolved_salt: list[float] = field(default_factory=list)  # накоплено, кг
+    salt_in_brine: list[float] = field(default_factory=list)  # в камере, вкл. поры насыпи, кг
+    floor_depth: list[float] = field(default_factory=list)  # верх насыпи, м
+    insoluble_bulk: list[float] = field(default_factory=list)  # насыпной объём, м³
     n_steps: int = 0
+    n_shoe_moves: int = 0  # шагов, где башмак пришлось поднять над насыпью
 
-    def record(
-        self, t: float, cav: Cavern, c: FloatArray, produced: float, dissolved: float
-    ) -> None:
+    def record(self, t: float, cav: Cavern, c: FloatArray, state: _State) -> None:
         self.times.append(t)
         self.radius.append(np.array(cav.radius))
         self.concentration.append(np.array(c))
         self.volume.append(cav.volume())
-        self.produced_salt.append(produced)
-        self.dissolved_salt.append(dissolved)
+        self.produced_salt.append(state.produced)
+        self.dissolved_salt.append(state.dissolved)
+        self.salt_in_brine.append(state.salt_in_brine(cav, c))
+        self.floor_depth.append(state.z_floor)
+        self.insoluble_bulk.append(state.bulk)
 
     def cavern(self, i: int = -1) -> Cavern:
         return Cavern(self.grid, self.radius[i])
@@ -72,6 +84,23 @@ class History:
 
 def _layer_volumes(cav: Cavern) -> FloatArray:
     return np.asarray(cav.layer_volumes().sum(axis=1), dtype=np.float64)
+
+
+@dataclass
+class _State:
+    """Накопленные величины прогона помимо формы и концентрации."""
+
+    produced: float  # кг соли, вынесено
+    dissolved: float  # кг соли, растворено
+    bulk: float  # м³, насыпной объём нерастворимых
+    z_floor: float  # м, верх насыпи
+    k_floor: int  # первый погребённый слой (nz — нет погребённых)
+    trapped: float = 0.0  # кг соли в порах насыпи
+
+    def salt_in_brine(self, cav: Cavern, c: FloatArray) -> float:
+        v = _layer_volumes(cav)
+        k = self.k_floor
+        return float(np.dot(v[:k], c[:k])) + self.trapped
 
 
 def simulate(cfg: RunConfig) -> History:
@@ -85,22 +114,29 @@ def simulate(cfg: RunConfig) -> History:
 
     cav = Cavern.cylinder(grid, cfg.grid.r_borehole_m)
     c = np.full(grid.nz, lp.initial_saturation * c_sat)
-    produced = dissolved = 0.0
+    geo = cfg.geology
+    porosity = 1.0 - 1.0 / geo.bulking_factor
+    st = _State(0.0, 0.0, 0.0, float(grid.z_edges[-1]), grid.nz)
     hist = History(grid)
-    hist.record(0.0, cav, c, produced, dissolved)
+    hist.record(0.0, cav, c, st)
 
     dt_max = days_to_seconds(lp.dt_max_days)
     dt_out = days_to_seconds(lp.output_every_days)
     next_out = dt_out
     dz_min = float(np.min(grid.dz))
+    node_idx = np.arange(grid.nz + 1)
 
     t = 0.0
     for stage in schedule.stages:
         kb = stage.k_blanket
-        # растворяются узлы строго ниже уровня нерастворителя: узел kb — граница с ним,
-        # иначе прирост объёма слоя kb−1 (над нерастворителем) получил бы соль
-        active = grid.z_edges > grid.z_edges[kb]
         while t < stage.t_end - 1e-9:
+            kf = st.k_floor
+            if kf <= kb + 1:
+                raise RuntimeError(
+                    f"камера заполнена нерастворимыми до нерастворителя, t = {t:.0f} с"
+                )
+            # растворяются узлы строго между нерастворителем (узел kb) и насыпью (узел kf)
+            active = (node_idx > kb) & (node_idx < kf)
             rate, v_max = wall_growth_rate(
                 cav.radius, grid.dz, node_concentration(c), c_sat, law, solid, active
             )
@@ -125,19 +161,34 @@ def simulate(cfg: RunConfig) -> History:
                     raise RuntimeError(f"шаг по времени упал ниже {MIN_DT} с при t = {t:.0f} с")
                 dt *= 0.5
 
-            # колонна рассола — только слои ниже нерастворителя; выше стоит сам
-            # нерастворитель, там концентрация не меняется
+            # башмак в насыпи поднимается на первый слой над ней
+            k_in, k_out = min(stage.k_in, kf - 1), min(stage.k_out, kf - 1)
+            if (k_in, k_out) != (stage.k_in, stage.k_out):
+                hist.n_shoe_moves += 1
+
+            # колонна рассола — слои между нерастворителем и насыпью
             res = column_step(
-                c[kb:], v_old[kb:], v_new[kb:], dm[kb:], stage.q_in,
-                stage.k_in - kb, stage.k_out - kb, dt,
+                c[kb:kf], v_old[kb:kf], v_new[kb:kf], dm[kb:kf], stage.q_in,
+                k_in - kb, k_out - kb, dt,
             )  # fmt: skip
-            c = np.concatenate([c[:kb], res.c])
+            c = np.concatenate([c[:kb], res.c, c[kf:]])
             cav = new_cav
-            produced += res.produced_salt
-            dissolved += float(dm.sum())
+            st.produced += res.produced_salt
+            st.dissolved += float(dm.sum())
+
+            # нерастворимые оседают; погребённые слои выходят из колонны
+            st.bulk += geo.bulking_factor * geo.insoluble_fraction * growth
+            st.z_floor = floor_depth(grid.z_edges, v_new, st.bulk)
+            kf_new = min(first_buried_layer(grid.z_centers, st.z_floor), kf)
+            for k in range(kf_new, kf):
+                salt_k = float(v_new[k] * c[k])
+                st.trapped += porosity * salt_k  # остаётся в порах
+                st.produced += (1.0 - porosity) * salt_k  # вытеснено твёрдым к отбору
+            st.k_floor = kf_new
+
             t += dt
             hist.n_steps += 1
             if t >= next_out - 1e-9 or t >= schedule.total_duration - 1e-9:
-                hist.record(t, cav, c, produced, dissolved)
+                hist.record(t, cav, c, st)
                 next_out = t + dt_out
     return hist

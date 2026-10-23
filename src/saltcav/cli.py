@@ -51,6 +51,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"  объём камеры      {hist.volume[-1]:12.0f} м³")
     z_max = float(hist.grid.z_edges[i_max])
     print(f"  макс. радиус      {float(np.max(r)):12.2f} м на глубине {z_max:.1f} м")
+    print(f"  подошва (насыпь)  {hist.floor_depth[-1]:12.1f} м, {hist.insoluble_bulk[-1]:.0f} м³")
+    if hist.n_shoe_moves:
+        print(f"  башмак поднимался над насыпью на {hist.n_shoe_moves} шагах из {hist.n_steps}")
     print(f"  растворено соли   {hist.dissolved_salt[-1] / 1e3:12.1f} т")
     print(f"  вынесено рассолом {hist.produced_salt[-1] / 1e3:12.1f} т")
     if args.out:
@@ -64,6 +67,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             volume_m3=np.array(hist.volume),
             produced_salt_kg=np.array(hist.produced_salt),
             dissolved_salt_kg=np.array(hist.dissolved_salt),
+            salt_in_brine_kg=np.array(hist.salt_in_brine),
+            floor_depth_m=np.array(hist.floor_depth),
+            insoluble_bulk_m3=np.array(hist.insoluble_bulk),
         )
         print(f"  история сохранена в {out}")
     return 0
