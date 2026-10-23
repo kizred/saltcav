@@ -190,7 +190,7 @@ class Cavern:
 
     def equivalent_radius(self) -> FloatArray:
         """Радиус круга той же площади сечения в каждом узле, м."""
-        return np.sqrt(np.mean(self.radius**2, axis=1))
+        return np.asarray(np.sqrt(np.mean(self.radius**2, axis=1)), dtype=np.float64)
 
     def centroid_offset(self) -> FloatArray:
         """Смещение центра сечения от оси скважины в каждом узле (x, y), м.
