@@ -1,0 +1,42 @@
+# Пример конфигурации: одиночная камера, пластовая соль с прослоем ангидрита.
+# Значения иллюстративные, не данные конкретного месторождения.
+name: example-single-cavern
+
+grid:
+  z_top_m: 900
+  z_bottom_m: 1100
+  nz: 200
+  nphi: 1            # 1 = осесимметрия (этап 2); >1 — 3D по азимуту (этап 3)
+  r_borehole_m: 0.15
+
+geology:
+  insoluble_fraction: 0.05
+  insoluble_fraction_sd: 0.02
+  bulking_factor: 1.5
+  salt_density_kg_m3: 2160
+  layers:
+    - kind: anhydrite
+      top_m: 1000
+      thickness_m: 1.5
+      top_sd_m: 2.0
+      thickness_sd_m: 0.5
+
+schedule:
+  stages:
+    - duration_days: 60
+      mode: direct
+      rate_m3_per_h: 50
+      injection_depth_m: 1090
+      production_depth_m: 1080
+      blanket_depth_m: 1060
+    - duration_days: 180
+      mode: reverse
+      rate_m3_per_h: 100
+      injection_depth_m: 1040
+      production_depth_m: 1090
+      blanket_depth_m: 1020
+
+ensemble:
+  n_realizations: 1000
+  seed: 20261024
+  sampler: sobol

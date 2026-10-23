@@ -1,0 +1,31 @@
+# Данные компании и результаты расчётов — НЕ в git (версии через DVC)
+data/*
+!data/.gitkeep
+results/
+*.nc
+*.zarr/
+*.h5
+*.xdmf
+*.msh
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
