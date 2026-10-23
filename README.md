@@ -39,6 +39,7 @@ conda install -c conda-forge fenics-dolfinx mpich
 pytest                       # все быстрые тесты
 saltcav check configs/example.yaml
 saltcav run configs/example.yaml   # прогон одной камеры
+python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 
 ## Структура
@@ -54,7 +55,7 @@ saltcav run configs/example.yaml   # прогон одной камеры
 | `src/saltcav/io`, `calibration` | данные и калибровка | 8 |
 | `src/saltcav/viz`, `cli.py` | визуализация, командная строка | 9 |
 | `configs/` | YAML-конфигурации | — |
-| `benchmarks/` | SANSMIC, профили SPR | 2+ |
+| `benchmarks/sansmic` | сверка с SANSMIC: сценарий, эталон, сравнение | 2.4 |
 | `data/` | данные компании (вне git) | 8 |
 | `docs/` | паспорт, план ПО, прогресс, журнал решений | — |
 
