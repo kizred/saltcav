@@ -1,0 +1,544 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kizred/saltcav/schema/saltcav-config.schema.json",
+  "$defs": {
+    "EnsembleConfig": {
+      "additionalProperties": false,
+      "description": "Ансамбль Монте-Карло (saltcav ensemble).",
+      "properties": {
+        "n_realizations": {
+          "default": 100,
+          "description": "Число реализаций по умолчанию",
+          "minimum": 1,
+          "title": "N Realizations",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 12345,
+          "description": "Seed: тот же seed — тот же ансамбль бит в бит",
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "sampler": {
+          "default": "mc",
+          "description": "План: mc — Монте-Карло, lhs — латинский гиперкуб, sobol — Соболь",
+          "pattern": "^(mc|lhs|sobol)$",
+          "title": "Sampler",
+          "type": "string"
+        }
+      },
+      "title": "EnsembleConfig",
+      "type": "object"
+    },
+    "GeologyConfig": {
+      "additionalProperties": false,
+      "description": "Свойства массива.\n\nДетерминированная неоднородность по азимуту: множитель скорости растворения\nm(φ) = 1 + a·cos(φ − φ₀). Случайные поля по z и φ — в разделе uncertainty.",
+      "properties": {
+        "insoluble_fraction": {
+          "default": 0.05,
+          "description": "Доля нерастворимых в породе (объёмная), 0…1",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Insoluble Fraction",
+          "type": "number"
+        },
+        "insoluble_fraction_sd": {
+          "default": 0.0,
+          "description": "Ансамбль: ст. отклонение доли нерастворимых (поле)",
+          "minimum": 0,
+          "title": "Insoluble Fraction Sd",
+          "type": "number"
+        },
+        "bulking_factor": {
+          "default": 1.5,
+          "description": "Коэффициент разрыхления нерастворимых в насыпи, ≥ 1",
+          "minimum": 1,
+          "title": "Bulking Factor",
+          "type": "number"
+        },
+        "salt_density_kg_m3": {
+          "default": 2160.0,
+          "description": "Плотность каменной соли, кг/м³",
+          "exclusiveMinimum": 0,
+          "title": "Salt Density Kg M3",
+          "type": "number"
+        },
+        "k_variation": {
+          "default": 0.0,
+          "description": "Асимметрия: амплитуда a в m(φ) = 1 + a·cos(φ − φ₀), 0…1",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "K Variation",
+          "type": "number"
+        },
+        "k_variation_azimuth_deg": {
+          "default": 0.0,
+          "description": "Асимметрия: азимут φ₀ быстрого растворения, °",
+          "title": "K Variation Azimuth Deg",
+          "type": "number"
+        },
+        "ledge_span_ratio": {
+          "default": 3.0,
+          "description": "Критический вылет карниза / мощность прослоя",
+          "exclusiveMinimum": 0,
+          "title": "Ledge Span Ratio",
+          "type": "number"
+        },
+        "layers": {
+          "description": "Нерастворимые прослои (ангидрит, глина)",
+          "items": {
+            "$ref": "#/$defs/LayerConfig"
+          },
+          "title": "Layers",
+          "type": "array"
+        }
+      },
+      "title": "GeologyConfig",
+      "type": "object"
+    },
+    "GridConfig": {
+      "additionalProperties": false,
+      "description": "Расчётная сетка стенки R(z, φ). Глубина z отсчитывается вниз от поверхности.",
+      "properties": {
+        "z_top_m": {
+          "description": "Глубина верха расчётной сетки, м",
+          "exclusiveMinimum": 0,
+          "title": "Z Top M",
+          "type": "number"
+        },
+        "z_bottom_m": {
+          "description": "Глубина низа сетки, м (глубже z_top_m)",
+          "exclusiveMinimum": 0,
+          "title": "Z Bottom M",
+          "type": "number"
+        },
+        "nz": {
+          "description": "Число слоёв по глубине (шаг = высота / nz)",
+          "minimum": 2,
+          "title": "Nz",
+          "type": "integer"
+        },
+        "nphi": {
+          "default": 1,
+          "description": "Число секторов по азимуту; 1 — осесимметрия, 12–36 — 3D",
+          "minimum": 1,
+          "title": "Nphi",
+          "type": "integer"
+        },
+        "r_borehole_m": {
+          "default": 0.15,
+          "description": "Начальный радиус ствола скважины, м",
+          "exclusiveMinimum": 0,
+          "title": "R Borehole M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "z_top_m",
+        "z_bottom_m",
+        "nz"
+      ],
+      "title": "GridConfig",
+      "type": "object"
+    },
+    "LayerConfig": {
+      "additionalProperties": false,
+      "description": "Прослой; для стохастики задаётся неопределённость положения и мощности.\n\nАнгидрит и глина не растворяются: соль над и под ними уходит, прослой остаётся\nкарнизом. Карниз обрушивается, когда его вылет превышает критический:\n``critical_span_m`` или, если не задан, ``ledge_span_ratio × мощность``.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/LayerKind",
+          "description": "Порода: anhydrite, clay — не растворяются; halite — соль"
+        },
+        "top_m": {
+          "description": "Глубина кровли прослоя, м",
+          "exclusiveMinimum": 0,
+          "title": "Top M",
+          "type": "number"
+        },
+        "thickness_m": {
+          "description": "Мощность прослоя, м",
+          "exclusiveMinimum": 0,
+          "title": "Thickness M",
+          "type": "number"
+        },
+        "top_sd_m": {
+          "default": 0.0,
+          "description": "Ансамбль: ст. отклонение отметки кровли, м",
+          "minimum": 0,
+          "title": "Top Sd M",
+          "type": "number"
+        },
+        "thickness_sd_m": {
+          "default": 0.0,
+          "description": "Ансамбль: ст. отклонение мощности, м",
+          "minimum": 0,
+          "title": "Thickness Sd M",
+          "type": "number"
+        },
+        "critical_span_m": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Критический вылет карниза, м; пусто — ledge_span_ratio × мощность",
+          "title": "Critical Span M"
+        }
+      },
+      "required": [
+        "kind",
+        "top_m",
+        "thickness_m"
+      ],
+      "title": "LayerConfig",
+      "type": "object"
+    },
+    "LayerKind": {
+      "enum": [
+        "halite",
+        "anhydrite",
+        "clay"
+      ],
+      "title": "LayerKind",
+      "type": "string"
+    },
+    "LeachMode": {
+      "enum": [
+        "direct",
+        "reverse"
+      ],
+      "title": "LeachMode",
+      "type": "string"
+    },
+    "LeachingConfig": {
+      "additionalProperties": false,
+      "description": "Параметры закона растворения и численной схемы.\n\nПоток соли со стенки: j = k0 · f(ψ) · C_s · u^n, u = (C_s − C)/C_s.\nk0 по умолчанию подобран по бенчмарку SANSMIC (benchmarks/sansmic): объём камеры\nсовпадает в пределах 1 %. Оценка по корреляции свободной конвекции (Sh ~ Ra^(1/3))\nдаёт 1,5e-5 — тот же порядок. Это априорное значение: калибровать по физической\nмодели и данным компании.",
+      "properties": {
+        "temperature_c": {
+          "default": 30.0,
+          "description": "Температура рассола, °C",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Temperature C",
+          "type": "number"
+        },
+        "k0_m_per_s": {
+          "default": 3e-05,
+          "description": "Коэффициент растворения k0, м/с (SANSMIC: 3e-5)",
+          "exclusiveMinimum": 0,
+          "title": "K0 M Per S",
+          "type": "number"
+        },
+        "exponent": {
+          "default": 1.3333333333333333,
+          "description": "Показатель n в u^n, u — недонасыщение",
+          "exclusiveMinimum": 0,
+          "title": "Exponent",
+          "type": "number"
+        },
+        "roof_ratio": {
+          "default": 1.5,
+          "description": "Скорость растворения кровли / вертикальной стенки",
+          "minimum": 0,
+          "title": "Roof Ratio",
+          "type": "number"
+        },
+        "floor_ratio": {
+          "default": 0.0,
+          "description": "Скорость растворения подошвы / вертикальной стенки",
+          "minimum": 0,
+          "title": "Floor Ratio",
+          "type": "number"
+        },
+        "initial_saturation": {
+          "default": 1.0,
+          "description": "Начальное насыщение рассола в скважине C₀/C_s",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Initial Saturation",
+          "type": "number"
+        },
+        "plume": {
+          "default": true,
+          "description": "Струя и плюм от башмака закачки; false — мгновенное перемешивание",
+          "title": "Plume",
+          "type": "boolean"
+        },
+        "entrainment_coeff": {
+          "default": 0.09,
+          "description": "Коэффициент вовлечения плюма α (SANSMIC: 0,09)",
+          "maximum": 0.5,
+          "minimum": 0,
+          "title": "Entrainment Coeff",
+          "type": "number"
+        },
+        "tubing_radius_m": {
+          "default": 0.1,
+          "description": "Внутренний радиус колонны закачки, м",
+          "exclusiveMinimum": 0,
+          "title": "Tubing Radius M",
+          "type": "number"
+        },
+        "cfl": {
+          "default": 0.5,
+          "description": "Число Куранта для движения стенки",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Cfl",
+          "type": "number"
+        },
+        "max_growth_fraction": {
+          "default": 0.5,
+          "description": "Ограничение шага: прирост объёма ≤ доля·Q·dt",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Growth Fraction",
+          "type": "number"
+        },
+        "dt_max_days": {
+          "default": 1.0,
+          "description": "Наибольший шаг по времени, сут",
+          "exclusiveMinimum": 0,
+          "title": "Dt Max Days",
+          "type": "number"
+        },
+        "output_every_days": {
+          "default": 10.0,
+          "description": "Сохранять результаты каждые N сут (кадры просмотра)",
+          "exclusiveMinimum": 0,
+          "title": "Output Every Days",
+          "type": "number"
+        }
+      },
+      "title": "LeachingConfig",
+      "type": "object"
+    },
+    "ScheduleConfig": {
+      "additionalProperties": false,
+      "description": "График режима выщелачивания.",
+      "properties": {
+        "stages": {
+          "description": "Ступени режима по порядку",
+          "items": {
+            "$ref": "#/$defs/StageConfig"
+          },
+          "minItems": 1,
+          "title": "Stages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "stages"
+      ],
+      "title": "ScheduleConfig",
+      "type": "object"
+    },
+    "StageConfig": {
+      "additionalProperties": false,
+      "description": "Ступень режима выщелачивания.",
+      "properties": {
+        "duration_days": {
+          "description": "Длительность ступени, сут",
+          "exclusiveMinimum": 0,
+          "title": "Duration Days",
+          "type": "number"
+        },
+        "mode": {
+          "$ref": "#/$defs/LeachMode",
+          "description": "direct — прямоток, reverse — противоток"
+        },
+        "rate_m3_per_h": {
+          "description": "Расход закачки пресной воды, м³/ч",
+          "exclusiveMinimum": 0,
+          "title": "Rate M3 Per H",
+          "type": "number"
+        },
+        "injection_depth_m": {
+          "description": "Глубина башмака колонны закачки, м",
+          "exclusiveMinimum": 0,
+          "title": "Injection Depth M",
+          "type": "number"
+        },
+        "production_depth_m": {
+          "description": "Глубина башмака колонны отбора рассола, м",
+          "exclusiveMinimum": 0,
+          "title": "Production Depth M",
+          "type": "number"
+        },
+        "blanket_depth_m": {
+          "description": "Уровень нерастворителя (кровля зоны растворения), м",
+          "exclusiveMinimum": 0,
+          "title": "Blanket Depth M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "duration_days",
+        "mode",
+        "rate_m3_per_h",
+        "injection_depth_m",
+        "production_depth_m",
+        "blanket_depth_m"
+      ],
+      "title": "StageConfig",
+      "type": "object"
+    },
+    "UncertaintyConfig": {
+      "additionalProperties": false,
+      "description": "Неопределённость для ансамбля (этап 5). Нули — детерминированный прогон.\n\nПоля по (z, φ): ln k с σ = ``k_field_sigma``; доля нерастворимых с σ =\n``geology.insoluble_fraction_sd``; общие длины корреляции. Скаляры на реализацию:\nk0 (логнормальный множитель), отношение кровля/стенка (равномерно в диапазоне),\nкритический вылет карниза (логнормальный множитель), расход на каждой ступени\n(нормальный множитель); положение и мощность прослоев — ``top_sd_m``,\n``thickness_sd_m`` у прослоя.",
+      "properties": {
+        "k_field_sigma": {
+          "default": 0.0,
+          "description": "Поле ln k по (z, φ): ст. отклонение σ",
+          "maximum": 2,
+          "minimum": 0,
+          "title": "K Field Sigma",
+          "type": "number"
+        },
+        "corr_length_z_m": {
+          "default": 10.0,
+          "description": "Длина корреляции полей по глубине, м",
+          "minimum": 0,
+          "title": "Corr Length Z M",
+          "type": "number"
+        },
+        "corr_length_phi_deg": {
+          "default": 60.0,
+          "description": "Длина корреляции полей по азимуту, °",
+          "maximum": 360,
+          "minimum": 0,
+          "title": "Corr Length Phi Deg",
+          "type": "number"
+        },
+        "k0_log_sd": {
+          "default": 0.0,
+          "description": "k0: σ логнормального множителя",
+          "maximum": 2,
+          "minimum": 0,
+          "title": "K0 Log Sd",
+          "type": "number"
+        },
+        "roof_ratio_range": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "roof_ratio: равномерно в [нижняя, верхняя]",
+          "title": "Roof Ratio Range"
+        },
+        "ledge_span_log_sd": {
+          "default": 0.0,
+          "description": "Критический вылет карниза: σ логнормального множителя",
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Ledge Span Log Sd",
+          "type": "number"
+        },
+        "rate_rel_sd": {
+          "default": 0.0,
+          "description": "Расход: относительное ст. отклонение по ступеням",
+          "maximum": 0.5,
+          "minimum": 0,
+          "title": "Rate Rel Sd",
+          "type": "number"
+        }
+      },
+      "title": "UncertaintyConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Конфигурация расчёта saltcav (YAML).",
+  "properties": {
+    "name": {
+      "description": "Название расчёта (в выводе и файлах)",
+      "title": "Name",
+      "type": "string"
+    },
+    "grid": {
+      "$ref": "#/$defs/GridConfig"
+    },
+    "geology": {
+      "$ref": "#/$defs/GeologyConfig",
+      "default": {
+        "insoluble_fraction": 0.05,
+        "insoluble_fraction_sd": 0.0,
+        "bulking_factor": 1.5,
+        "salt_density_kg_m3": 2160.0,
+        "k_variation": 0.0,
+        "k_variation_azimuth_deg": 0.0,
+        "ledge_span_ratio": 3.0,
+        "layers": []
+      }
+    },
+    "schedule": {
+      "$ref": "#/$defs/ScheduleConfig"
+    },
+    "leaching": {
+      "$ref": "#/$defs/LeachingConfig",
+      "default": {
+        "temperature_c": 30.0,
+        "k0_m_per_s": 3e-05,
+        "exponent": 1.3333333333333333,
+        "roof_ratio": 1.5,
+        "floor_ratio": 0.0,
+        "initial_saturation": 1.0,
+        "plume": true,
+        "entrainment_coeff": 0.09,
+        "tubing_radius_m": 0.1,
+        "cfl": 0.5,
+        "max_growth_fraction": 0.5,
+        "dt_max_days": 1.0,
+        "output_every_days": 10.0
+      }
+    },
+    "uncertainty": {
+      "$ref": "#/$defs/UncertaintyConfig",
+      "default": {
+        "k_field_sigma": 0.0,
+        "corr_length_z_m": 10.0,
+        "corr_length_phi_deg": 60.0,
+        "k0_log_sd": 0.0,
+        "roof_ratio_range": null,
+        "ledge_span_log_sd": 0.0,
+        "rate_rel_sd": 0.0
+      }
+    },
+    "ensemble": {
+      "$ref": "#/$defs/EnsembleConfig",
+      "default": {
+        "n_realizations": 100,
+        "seed": 12345,
+        "sampler": "mc"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "grid",
+    "schedule"
+  ],
+  "title": "RunConfig",
+  "type": "object"
+}

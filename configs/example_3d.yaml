@@ -1,3 +1,5 @@
+# $schema: ../schema/saltcav-config.schema.json
+# yaml-language-server: $schema=../schema/saltcav-config.schema.json
 # Пример 3D: 36 секторов по азимуту, растворение на ±30 % быстрее в направлении 45°.
 # Значения иллюстративные. Просмотр: saltcav view configs/example_3d.yaml
 name: example-3d-asymmetric

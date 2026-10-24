@@ -16,9 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from saltcav.core import units
 
-Positive = Annotated[float, Field(gt=0)]
-Fraction = Annotated[float, Field(ge=0, le=1)]
-
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -27,11 +24,15 @@ class _Strict(BaseModel):
 class GridConfig(_Strict):
     """Расчётная сетка стенки R(z, φ). Глубина z отсчитывается вниз от поверхности."""
 
-    z_top_m: Positive
-    z_bottom_m: Positive
-    nz: Annotated[int, Field(ge=2)]
-    nphi: Annotated[int, Field(ge=1)] = 1  # 1 = осесимметрия
-    r_borehole_m: Positive = 0.15
+    z_top_m: Annotated[float, Field(gt=0, description="Глубина верха расчётной сетки, м")]
+    z_bottom_m: Annotated[float, Field(gt=0, description="Глубина низа сетки, м (глубже z_top_m)")]
+    nz: Annotated[int, Field(ge=2, description="Число слоёв по глубине (шаг = высота / nz)")]
+    nphi: Annotated[
+        int, Field(ge=1, description="Число секторов по азимуту; 1 — осесимметрия, 12–36 — 3D")
+    ] = 1
+    r_borehole_m: Annotated[
+        float, Field(gt=0, description="Начальный радиус ствола скважины, м")
+    ] = 0.15
 
     @model_validator(mode="after")
     def _check_depths(self) -> GridConfig:
@@ -54,30 +55,57 @@ class LayerConfig(_Strict):
     ``critical_span_m`` или, если не задан, ``ledge_span_ratio × мощность``.
     """
 
-    kind: LayerKind
-    top_m: Positive
-    thickness_m: Positive
-    top_sd_m: Annotated[float, Field(ge=0)] = 0.0
-    thickness_sd_m: Annotated[float, Field(ge=0)] = 0.0
-    critical_span_m: Positive | None = None
+    kind: Annotated[
+        LayerKind, Field(description="Порода: anhydrite, clay — не растворяются; halite — соль")
+    ]
+    top_m: Annotated[float, Field(gt=0, description="Глубина кровли прослоя, м")]
+    thickness_m: Annotated[float, Field(gt=0, description="Мощность прослоя, м")]
+    top_sd_m: Annotated[
+        float, Field(ge=0, description="Ансамбль: ст. отклонение отметки кровли, м")
+    ] = 0.0
+    thickness_sd_m: Annotated[
+        float, Field(ge=0, description="Ансамбль: ст. отклонение мощности, м")
+    ] = 0.0
+    critical_span_m: Annotated[
+        float | None,
+        Field(
+            gt=0, description="Критический вылет карниза, м; пусто — ledge_span_ratio × мощность"
+        ),
+    ] = None
 
 
 class GeologyConfig(_Strict):
     """Свойства массива.
 
-    Детерминированная неоднородность по азимуту (этап 3, для проверки 3D):
-    множитель скорости растворения m(φ) = 1 + a·cos(φ − φ₀). Случайные поля по z и φ
-    появятся на этапе 5.
+    Детерминированная неоднородность по азимуту: множитель скорости растворения
+    m(φ) = 1 + a·cos(φ − φ₀). Случайные поля по z и φ — в разделе uncertainty.
     """
 
-    insoluble_fraction: Fraction = 0.05
-    insoluble_fraction_sd: Annotated[float, Field(ge=0)] = 0.0
-    bulking_factor: Annotated[float, Field(ge=1)] = 1.5
-    salt_density_kg_m3: Positive = 2160.0
-    k_variation: Annotated[float, Field(ge=0, lt=1)] = 0.0  # амплитуда a
-    k_variation_azimuth_deg: float = 0.0  # направление φ₀ быстрого растворения
-    ledge_span_ratio: Positive = 3.0  # критический вылет карниза / мощность прослоя
-    layers: list[LayerConfig] = Field(default_factory=list)
+    insoluble_fraction: Annotated[
+        float, Field(ge=0, le=1, description="Доля нерастворимых в породе (объёмная), 0…1")
+    ] = 0.05
+    insoluble_fraction_sd: Annotated[
+        float, Field(ge=0, description="Ансамбль: ст. отклонение доли нерастворимых (поле)")
+    ] = 0.0
+    bulking_factor: Annotated[
+        float, Field(ge=1, description="Коэффициент разрыхления нерастворимых в насыпи, ≥ 1")
+    ] = 1.5
+    salt_density_kg_m3: Annotated[
+        float, Field(gt=0, description="Плотность каменной соли, кг/м³")
+    ] = 2160.0
+    k_variation: Annotated[
+        float,
+        Field(ge=0, lt=1, description="Асимметрия: амплитуда a в m(φ) = 1 + a·cos(φ − φ₀), 0…1"),
+    ] = 0.0
+    k_variation_azimuth_deg: Annotated[
+        float, Field(description="Асимметрия: азимут φ₀ быстрого растворения, °")
+    ] = 0.0
+    ledge_span_ratio: Annotated[
+        float, Field(gt=0, description="Критический вылет карниза / мощность прослоя")
+    ] = 3.0
+    layers: list[LayerConfig] = Field(
+        default_factory=list, description="Нерастворимые прослои (ангидрит, глина)"
+    )
 
 
 class LeachMode(StrEnum):
@@ -88,12 +116,19 @@ class LeachMode(StrEnum):
 class StageConfig(_Strict):
     """Ступень режима выщелачивания."""
 
-    duration_days: Positive
-    mode: LeachMode
-    rate_m3_per_h: Positive
-    injection_depth_m: Positive
-    production_depth_m: Positive
-    blanket_depth_m: Positive  # уровень нерастворителя (кровля зоны растворения)
+    duration_days: Annotated[float, Field(gt=0, description="Длительность ступени, сут")]
+    mode: Annotated[LeachMode, Field(description="direct — прямоток, reverse — противоток")]
+    rate_m3_per_h: Annotated[float, Field(gt=0, description="Расход закачки пресной воды, м³/ч")]
+    injection_depth_m: Annotated[
+        float, Field(gt=0, description="Глубина башмака колонны закачки, м")
+    ]
+    production_depth_m: Annotated[
+        float, Field(gt=0, description="Глубина башмака колонны отбора рассола, м")
+    ]
+    blanket_depth_m: Annotated[
+        float,
+        Field(gt=0, description="Уровень нерастворителя (кровля зоны растворения), м"),
+    ]
 
     @property
     def duration_s(self) -> float:
@@ -105,13 +140,25 @@ class StageConfig(_Strict):
 
 
 class ScheduleConfig(_Strict):
-    stages: Annotated[list[StageConfig], Field(min_length=1)]
+    """График режима выщелачивания."""
+
+    stages: Annotated[
+        list[StageConfig], Field(min_length=1, description="Ступени режима по порядку")
+    ]
 
 
 class EnsembleConfig(_Strict):
-    n_realizations: Annotated[int, Field(ge=1)] = 100
-    seed: Annotated[int, Field(ge=0)] = 12345
-    sampler: str = Field(default="mc", pattern="^(mc|lhs|sobol)$")
+    """Ансамбль Монте-Карло (saltcav ensemble)."""
+
+    n_realizations: Annotated[int, Field(ge=1, description="Число реализаций по умолчанию")] = 100
+    seed: Annotated[
+        int, Field(ge=0, description="Seed: тот же seed — тот же ансамбль бит в бит")
+    ] = 12345
+    sampler: str = Field(
+        default="mc",
+        pattern="^(mc|lhs|sobol)$",
+        description="План: mc — Монте-Карло, lhs — латинский гиперкуб, sobol — Соболь",
+    )
 
 
 class LeachingConfig(_Strict):
@@ -124,19 +171,42 @@ class LeachingConfig(_Strict):
     модели и данным компании.
     """
 
-    temperature_c: Annotated[float, Field(ge=0, le=100)] = 30.0
-    k0_m_per_s: Positive = 3.0e-5
-    exponent: Positive = 4.0 / 3.0
-    roof_ratio: Annotated[float, Field(ge=0)] = 1.5  # кровля / вертикальная стенка
-    floor_ratio: Annotated[float, Field(ge=0)] = 0.0  # подошва / вертикальная стенка
-    initial_saturation: Fraction = 1.0  # C₀/C_s рассола в скважине в начале
-    plume: bool = True  # струя и плюм от башмака закачки; False — мгновенное перемешивание
-    entrainment_coeff: Annotated[float, Field(ge=0, le=0.5)] = 0.09  # как в SANSMIC
-    tubing_radius_m: Positive = 0.1  # внутренний радиус колонны закачки
-    cfl: Annotated[float, Field(gt=0, le=1)] = 0.5
-    max_growth_fraction: Annotated[float, Field(gt=0, lt=1)] = 0.5  # ΔV ≤ доля·Q·dt
-    dt_max_days: Positive = 1.0
-    output_every_days: Positive = 10.0
+    temperature_c: Annotated[float, Field(ge=0, le=100, description="Температура рассола, °C")] = (
+        30.0
+    )
+    k0_m_per_s: Annotated[
+        float, Field(gt=0, description="Коэффициент растворения k0, м/с (SANSMIC: 3e-5)")
+    ] = 3.0e-5
+    exponent: Annotated[float, Field(gt=0, description="Показатель n в u^n, u — недонасыщение")] = (
+        4.0 / 3.0
+    )
+    roof_ratio: Annotated[
+        float, Field(ge=0, description="Скорость растворения кровли / вертикальной стенки")
+    ] = 1.5
+    floor_ratio: Annotated[
+        float, Field(ge=0, description="Скорость растворения подошвы / вертикальной стенки")
+    ] = 0.0
+    initial_saturation: Annotated[
+        float, Field(ge=0, le=1, description="Начальное насыщение рассола в скважине C₀/C_s")
+    ] = 1.0
+    plume: bool = Field(
+        default=True,
+        description="Струя и плюм от башмака закачки; false — мгновенное перемешивание",
+    )
+    entrainment_coeff: Annotated[
+        float, Field(ge=0, le=0.5, description="Коэффициент вовлечения плюма α (SANSMIC: 0,09)")
+    ] = 0.09
+    tubing_radius_m: Annotated[
+        float, Field(gt=0, description="Внутренний радиус колонны закачки, м")
+    ] = 0.1
+    cfl: Annotated[float, Field(gt=0, le=1, description="Число Куранта для движения стенки")] = 0.5
+    max_growth_fraction: Annotated[
+        float, Field(gt=0, lt=1, description="Ограничение шага: прирост объёма ≤ доля·Q·dt")
+    ] = 0.5
+    dt_max_days: Annotated[float, Field(gt=0, description="Наибольший шаг по времени, сут")] = 1.0
+    output_every_days: Annotated[
+        float, Field(gt=0, description="Сохранять результаты каждые N сут (кадры просмотра)")
+    ] = 10.0
 
 
 class UncertaintyConfig(_Strict):
@@ -150,13 +220,28 @@ class UncertaintyConfig(_Strict):
     ``thickness_sd_m`` у прослоя.
     """
 
-    k_field_sigma: Annotated[float, Field(ge=0, le=2)] = 0.0
-    corr_length_z_m: Annotated[float, Field(ge=0)] = 10.0
-    corr_length_phi_deg: Annotated[float, Field(ge=0, le=360)] = 60.0
-    k0_log_sd: Annotated[float, Field(ge=0, le=2)] = 0.0
-    roof_ratio_range: tuple[float, float] | None = None
-    ledge_span_log_sd: Annotated[float, Field(ge=0, le=2)] = 0.0
-    rate_rel_sd: Annotated[float, Field(ge=0, le=0.5)] = 0.0
+    k_field_sigma: Annotated[
+        float, Field(ge=0, le=2, description="Поле ln k по (z, φ): ст. отклонение σ")
+    ] = 0.0
+    corr_length_z_m: Annotated[
+        float, Field(ge=0, description="Длина корреляции полей по глубине, м")
+    ] = 10.0
+    corr_length_phi_deg: Annotated[
+        float, Field(ge=0, le=360, description="Длина корреляции полей по азимуту, °")
+    ] = 60.0
+    k0_log_sd: Annotated[float, Field(ge=0, le=2, description="k0: σ логнормального множителя")] = (
+        0.0
+    )
+    roof_ratio_range: tuple[float, float] | None = Field(
+        default=None, description="roof_ratio: равномерно в [нижняя, верхняя]"
+    )
+    ledge_span_log_sd: Annotated[
+        float,
+        Field(ge=0, le=2, description="Критический вылет карниза: σ логнормального множителя"),
+    ] = 0.0
+    rate_rel_sd: Annotated[
+        float, Field(ge=0, le=0.5, description="Расход: относительное ст. отклонение по ступеням")
+    ] = 0.0
 
     @model_validator(mode="after")
     def _check_range(self) -> UncertaintyConfig:
@@ -167,7 +252,9 @@ class UncertaintyConfig(_Strict):
 
 
 class RunConfig(_Strict):
-    name: str
+    """Конфигурация расчёта saltcav (YAML)."""
+
+    name: str = Field(description="Название расчёта (в выводе и файлах)")
     grid: GridConfig
     geology: GeologyConfig = GeologyConfig()
     schedule: ScheduleConfig
@@ -186,6 +273,15 @@ class RunConfig(_Strict):
             if st.blanket_depth_m >= max(st.injection_depth_m, st.production_depth_m):
                 raise ValueError(f"ступень {i}: нерастворитель должен быть выше башмаков колонн")
         return self
+
+
+SCHEMA_ID = "https://github.com/kizred/saltcav/schema/saltcav-config.schema.json"
+
+
+def config_schema() -> dict[str, object]:
+    """JSON Schema конфигурации — для подсказок и проверки YAML в редакторе."""
+    schema = RunConfig.model_json_schema()
+    return {"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": SCHEMA_ID, **schema}
 
 
 def load_config(path: str | Path) -> RunConfig:
