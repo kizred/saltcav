@@ -41,6 +41,7 @@ pytest                       # все быстрые тесты
 saltcav check configs/example.yaml
 saltcav run configs/example.yaml   # прогон одной камеры
 saltcav view configs/example_3d.yaml   # 3D-вид камеры (нужен .[viz])
+saltcav ensemble configs/example_ensemble.yaml -n 200 --jobs 0 --plot env.png   # ансамбль
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 

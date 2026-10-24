@@ -1,6 +1,6 @@
 """Командная строка: ``saltcav <команда>``.
 
-Сейчас доступны ``version``, ``check``, ``run`` и ``view``; команды ``ensemble``,
+Сейчас доступны ``version``, ``check``, ``run``, ``view`` и ``ensemble``; команды
 ``mechanics``, ``calibrate``, ``report`` появятся на своих этапах.
 """
 
@@ -123,6 +123,57 @@ def _cmd_view(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_ensemble(args: argparse.Namespace) -> int:
+    from saltcav.stochastic.ensemble import run_ensemble
+
+    try:
+        cfg = load_config(args.config)
+    except (OSError, ValidationError, ValueError) as exc:
+        print(f"Ошибка в {args.config}:\n{exc}", file=sys.stderr)
+        return 1
+    t0 = time.perf_counter()
+    ens = run_ensemble(cfg, n=args.n, seed=args.seed, jobs=args.jobs)
+    elapsed = time.perf_counter() - t0
+    print(f"«{cfg.name}»: {ens.n} реализаций, seed {ens.seed}, {elapsed:.1f} с")
+
+    def q(name: str, scale: float = 1.0, fmt: str = ".1f") -> str:
+        x = ens.output(name) / scale
+        p10, p50, p90 = np.nanquantile(x, (0.1, 0.5, 0.9))
+        return f"{p10:{fmt}} / {p50:{fmt}} / {p90:{fmt}}"
+
+    print("                          P10 / P50 / P90")
+    print(f"  объём, тыс. м³          {q('volume', 1e3)}")
+    print(f"  макс. радиус, м         {q('max_radius')}")
+    print(f"  кровля (R > 1 м), м     {q('roof_depth')}")
+    print(f"  подошва, м              {q('floor_depth')}")
+    print(f"  смещение центра, м      {q('centroid_offset', fmt='.2f')}")
+    print(f"  обрушений карнизов      {q('collapses', fmt='.0f')}")
+    if args.radius_limit is not None:
+        p = ens.prob("max_radius", above=args.radius_limit)
+        print(f"  P(макс. радиус > {args.radius_limit:g} м) = {p:.3f}")
+    if ens.n >= 20:
+        conv = ens.convergence("volume")
+        tail = conv[int(0.8 * ens.n) :]
+        drift = np.max(np.ptp(tail, axis=0) / np.abs(conv[-1]))
+        print(f"  сходимость: изменение P10/P50/P90 объёма за последние 20 % — {100 * drift:.1f} %")
+    sens = ens.sensitivity(("volume", "max_radius", "floor_depth"))
+    if sens:
+        print("  чувствительность (Спирмен, три сильнейших):")
+        for out_name, d in sens.items():
+            top = sorted(d.items(), key=lambda kv: -abs(kv[1]))[:3]
+            print(f"    {out_name}: " + ", ".join(f"{k} {v:+.2f}" for k, v in top))
+    if args.out:
+        ens.save(args.out)
+        print(f"  ансамбль сохранён: {args.out}")
+    if args.plot:
+        from saltcav.viz.envelope import plot_envelope
+
+        layers = [(lay.top_m, lay.thickness_m) for lay in cfg.geology.layers]
+        plot_envelope(ens, args.plot, f"«{cfg.name}»: {ens.n} реализаций", layers)
+        print(f"  картинка: {args.plot}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +183,14 @@ def main(argv: list[str] | None = None) -> int:
     p_run = sub.add_parser("run", help="детерминированный прогон одной камеры")
     p_run.add_argument("config", help="путь к YAML")
     p_run.add_argument("--out", help="сохранить историю в .npz")
+    p_ens = sub.add_parser("ensemble", help="ансамбль Монте-Карло по неопределённости")
+    p_ens.add_argument("config", help="путь к YAML")
+    p_ens.add_argument("-n", type=int, help="число реализаций (по умолчанию из конфигурации)")
+    p_ens.add_argument("--seed", type=int, help="seed ансамбля (по умолчанию из конфигурации)")
+    p_ens.add_argument("--jobs", type=int, default=1, help="процессов; 0 — все ядра")
+    p_ens.add_argument("--radius-limit", type=float, help="порог для P(макс. радиус > порог)")
+    p_ens.add_argument("--out", help="сохранить ансамбль в .npz")
+    p_ens.add_argument("--plot", help="сохранить огибающие в .png")
     p_view = sub.add_parser("view", help="3D-вид камеры (нужен PyVista)")
     p_view.add_argument("source", help="YAML-конфигурация или история .npz из run --out")
     p_view.add_argument("--day", type=float, help="момент, сут (по умолчанию — последний)")
@@ -148,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     if args.command == "view":
         return _cmd_view(args)
+    if args.command == "ensemble":
+        return _cmd_ensemble(args)
     return 2  # pragma: no cover
 
 

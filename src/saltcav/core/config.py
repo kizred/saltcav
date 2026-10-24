@@ -139,12 +139,40 @@ class LeachingConfig(_Strict):
     output_every_days: Positive = 10.0
 
 
+class UncertaintyConfig(_Strict):
+    """Неопределённость для ансамбля (этап 5). Нули — детерминированный прогон.
+
+    Поля по (z, φ): ln k с σ = ``k_field_sigma``; доля нерастворимых с σ =
+    ``geology.insoluble_fraction_sd``; общие длины корреляции. Скаляры на реализацию:
+    k0 (логнормальный множитель), отношение кровля/стенка (равномерно в диапазоне),
+    критический вылет карниза (логнормальный множитель), расход на каждой ступени
+    (нормальный множитель); положение и мощность прослоев — ``top_sd_m``,
+    ``thickness_sd_m`` у прослоя.
+    """
+
+    k_field_sigma: Annotated[float, Field(ge=0, le=2)] = 0.0
+    corr_length_z_m: Annotated[float, Field(ge=0)] = 10.0
+    corr_length_phi_deg: Annotated[float, Field(ge=0, le=360)] = 60.0
+    k0_log_sd: Annotated[float, Field(ge=0, le=2)] = 0.0
+    roof_ratio_range: tuple[float, float] | None = None
+    ledge_span_log_sd: Annotated[float, Field(ge=0, le=2)] = 0.0
+    rate_rel_sd: Annotated[float, Field(ge=0, le=0.5)] = 0.0
+
+    @model_validator(mode="after")
+    def _check_range(self) -> UncertaintyConfig:
+        r = self.roof_ratio_range
+        if r is not None and not 0 <= r[0] <= r[1]:
+            raise ValueError("roof_ratio_range: нужно 0 ≤ нижняя ≤ верхняя")
+        return self
+
+
 class RunConfig(_Strict):
     name: str
     grid: GridConfig
     geology: GeologyConfig = GeologyConfig()
     schedule: ScheduleConfig
     leaching: LeachingConfig = LeachingConfig()
+    uncertainty: UncertaintyConfig = UncertaintyConfig()
     ensemble: EnsembleConfig = EnsembleConfig()
 
     @model_validator(mode="after")
