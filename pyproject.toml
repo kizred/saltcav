@@ -4,17 +4,18 @@ build-backend = "hatchling.build"
 
 [project]
 name = "saltcav"
-version = "1.1.0"
+version = "1.1.1"
 description = "Стохастическая модель скважинного выщелачивания соляных камер (NaCl)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
-authors = [{ name = "Sergei Kizre" }]
+authors = [{ name = "Sergei Kizred" }]
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "pydantic>=2.6",
     "pyyaml>=6.0",
+    "threadpoolctl>=3.1",  # однопоточный BLAS в задачах ансамбля (память, повторяемость)
 ]
 
 [project.optional-dependencies]
@@ -71,7 +72,7 @@ files = ["src/saltcav"]
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "numba.*", "gstools.*", "SALib.*", "gmsh.*", "pyvista.*", "matplotlib.*",
-    "PySide6.*", "pyvistaqt.*", "imageio.*", "pypardiso.*", "sklearn.*", "emcee.*", "vtkmodules.*",
+    "PySide6.*", "pyvistaqt.*", "imageio.*", "pypardiso.*", "sklearn.*", "emcee.*", "vtkmodules.*", "threadpoolctl",
 ]
 ignore_missing_imports = true
 

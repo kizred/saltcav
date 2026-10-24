@@ -29,6 +29,6 @@ def set_windows_app_id() -> None:
         import ctypes
 
         try:
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Kizre.saltcav")  # type: ignore[attr-defined]
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Kizred.saltcav")  # type: ignore[attr-defined]
         except (AttributeError, OSError):  # pragma: no cover
             pass

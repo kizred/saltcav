@@ -17,10 +17,7 @@
 
 from __future__ import annotations
 
-import multiprocessing as mp
-import os
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -211,9 +208,10 @@ def _split_cv(rest: str) -> tuple[str, str]:
     raise ValueError(rest)
 
 
-def _pool(jobs: int) -> ProcessPoolExecutor:
-    method = "forkserver" if "forkserver" in mp.get_all_start_methods() else "spawn"
-    return ProcessPoolExecutor(max_workers=jobs, mp_context=mp.get_context(method))
+def _pool(jobs: int) -> Any:
+    from saltcav.core.parallel import process_pool
+
+    return process_pool(jobs)
 
 
 class _Runner:
@@ -226,7 +224,9 @@ class _Runner:
     ) -> None:  # fmt: skip
         self.mc, self.z, self.radii, self.params = mc, z, radii, params
         self.layers = layers
-        self.jobs = max(1, jobs if jobs > 0 else (os.cpu_count() or 1))
+        from saltcav.core.parallel import default_jobs
+
+        self.jobs = default_jobs(jobs)
         self.done = 0
 
     def run(
@@ -239,19 +239,24 @@ class _Runner:
             for i in idx
         ]  # fmt: skip
         out: list[FloatArray] = []
-        if self.jobs == 1 or model == "3d" or len(tasks) == 1:
-            for t in tasks:
-                out.append(_task(t))
-                self.done += 1
-                if report:
-                    report(self.done)
-        else:
+        if not (self.jobs == 1 or model == "3d" or len(tasks) == 1):
+            from concurrent.futures.process import BrokenProcessPool
+
             with _pool(min(self.jobs, len(tasks))) as pool:
-                for y in pool.map(_task, tasks):
-                    out.append(y)
-                    self.done += 1
-                    if report:
-                        report(self.done)
+                try:
+                    for y in pool.map(_task, tasks):
+                        out.append(y)
+                        self.done += 1
+                        if report:
+                            report(self.done)
+                except BrokenProcessPool:  # процесс упал (память): остальное — здесь
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    self.jobs = 1
+        for t in tasks[len(out) :]:
+            out.append(_task(t))
+            self.done += 1
+            if report:
+                report(self.done)
         return np.array(out).reshape(-1, len(TARGETS))
 
 

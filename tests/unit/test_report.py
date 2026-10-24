@@ -44,8 +44,8 @@ def test_all_sections(cfg: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     st = sc.stability(c, ens, jobs=1)
     inp = ReportInputs(c, results=sc.run(c), ensemble=ens, mechanics=sc.mechanics(c), stability=st)
     html = build_html(inp)
-    for head in ("1. Исходные данные", "4. Неопределённость", "Карты вероятностей",
-                 "5. Геомеханика", "6. Устойчивость по ансамблю", "Воспроизводимость"):  # fmt: skip
+    for head in ("1. Исходные данные", "3. Неопределённость", "Карты вероятностей",
+                 "4. Геомеханика", "5. Устойчивость по ансамблю", "Воспроизводимость"):  # fmt: skip
         assert head in html, head
     assert 'class="bad"' in html  # P(запас < 1) = 1
 

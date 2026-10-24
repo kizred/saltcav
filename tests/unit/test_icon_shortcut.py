@@ -18,7 +18,7 @@ def test_icons_shipped() -> None:
     assert png.getpixel((0, 0))[3] == 0  # углы прозрачные
     ico = Image.open(icon_path("ico"))
     assert (256, 256) in ico.info["sizes"] and (16, 16) in ico.info["sizes"]
-    assert __author__ == "Sergei Kizre"
+    assert __author__ == "Sergei Kizred"
 
 
 def test_windows_script() -> None:
