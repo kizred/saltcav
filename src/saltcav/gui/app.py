@@ -31,7 +31,7 @@ from pydantic import ValidationError
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from saltcav import __version__
-from saltcav.core.config import RunConfig
+from saltcav.core.config import RunConfig, config_warnings
 from saltcav.gui.forms import ModelForm, ScalarEditor, ru_message
 from saltcav.gui.well import draw_well
 from saltcav.io.results import Results
@@ -127,6 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._thread: QtCore.QThread | None = None
         self._worker: Worker | None = None
         self._viewer: Any = None
+        self._help: Any = None
         self.resize(1500, 950)
 
         self.tabs = QtWidgets.QTabWidget()
@@ -181,13 +182,14 @@ class MainWindow(QtWidgets.QMainWindow):
         ll = QtWidgets.QVBoxLayout(left)
         top = QtWidgets.QFormLayout()
         self.name_ed = ScalarEditor("name", RunConfig.model_fields["name"], self._changed)
+        self.name_ed.widget.setProperty("saltcav_path", "name")
         top.addRow("Название расчёта", self.name_ed.widget)
         ll.addLayout(top)
         self.section_tabs = QtWidgets.QTabWidget()
         self.forms: dict[str, ModelForm] = {}
         for key, title in SECTIONS:
             model = RunConfig.model_fields[key].annotation
-            form = ModelForm(model, self._changed)  # type: ignore[arg-type]
+            form = ModelForm(model, self._changed, prefix=key)  # type: ignore[arg-type]
             self.forms[key] = form
             scroll = QtWidgets.QScrollArea()
             scroll.setWidgetResizable(True)
@@ -205,6 +207,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.status_lab.setWordWrap(True)
         rl.addWidget(self.status_lab)
         self.errors = QtWidgets.QListWidget()
+        self.errors.setWordWrap(True)
+        self.errors.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.errors.itemClicked.connect(self._goto_error)
         rl.addWidget(self.errors, 1)
         self.params_tab.addWidget(left)
@@ -253,6 +257,10 @@ class MainWindow(QtWidgets.QMainWindow):
         for a in (self.run_act, self.ens_act, self.mech_act):
             tb.addAction(a)
         mh = self.menuBar().addMenu("Справка")
+        act("Справка по полю", lambda: self.help_for_focus(), "F1", menu=mh)
+        act("Руководство", lambda: self.show_help(), menu=mh)
+        act("Справочник параметров", lambda: self.show_help("parameters"), menu=mh)
+        mh.addSeparator()
         act("О программе", self.about, menu=mh)
 
     # --- данные формы ---------------------------------------------------------------
@@ -303,7 +311,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self._set_actions(False)
             return None
         self.cfg = cfg
-        self.status_lab.setText("<span style='color:#2e7d32'>Конфигурация корректна</span>")
+        warns = config_warnings(cfg)
+        for loc, msg in warns:
+            item = QtWidgets.QListWidgetItem(f"⚠ {'.'.join(loc)}: {msg}")
+            item.setForeground(QtGui.QColor("#a86b00"))
+            item.setData(QtCore.Qt.ItemDataRole.UserRole, loc)
+            self.errors.addItem(item)
+            if loc[0] in self.forms:
+                self.forms[loc[0]].mark_error(loc[1:], msg, warn=True)
+        note = f", предупреждений: {len(warns)}" if warns else ""
+        self.status_lab.setText(f"<span style='color:#2e7d32'>Конфигурация корректна</span>{note}")
         self._set_actions(True)
         self._draw_well()
         return cfg
@@ -753,6 +770,30 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage(view.summary_text(), 15000)
 
     # --- прочее ------------------------------------------------------------------------
+
+    def show_help(self, page: str = "guide", path: str = "") -> Any:
+        from saltcav.gui.help import HelpDialog
+
+        if getattr(self, "_help", None) is None:
+            self._help = HelpDialog(self)
+        dlg = self._help
+        if path:
+            dlg.show_parameter(path)
+        elif page == "parameters":
+            dlg.tabs.setCurrentIndex(1)
+        else:
+            dlg.tabs.setCurrentIndex(0)
+        dlg.show()
+        dlg.raise_()
+        return dlg
+
+    def help_for_focus(self, widget: Any = None) -> None:
+        """F1: справка по полю под курсором, иначе — руководство."""
+        w = widget if widget is not None else QtWidgets.QApplication.focusWidget()
+        while w is not None and not w.property("saltcav_path"):
+            w = w.parentWidget()
+        path = str(w.property("saltcav_path")).removesuffix("[]") if w is not None else ""
+        self.show_help(path=path)
 
     def about(self) -> None:
         QtWidgets.QMessageBox.information(

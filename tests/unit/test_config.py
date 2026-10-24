@@ -53,3 +53,24 @@ def test_blanket_below_strings_rejected() -> None:
     raw["schedule"]["stages"][0]["blanket_depth_m"] = 1095
     with pytest.raises(ValidationError):
         RunConfig.model_validate(raw)
+
+
+def test_config_warnings_and_single_sector_ignores_azimuth() -> None:
+    import numpy as np
+
+    from saltcav.core.config import config_warnings
+    from saltcav.geometry import CavernGrid
+    from saltcav.leaching.properties import WallProperties
+
+    base = load_config(EXAMPLE)
+    assert config_warnings(base) == []
+    geo = base.geology.model_copy(update={"k_variation": 0.3, "k_variation_azimuth_deg": 0.0})
+    cfg = base.model_copy(update={"geology": geo})
+    assert [loc for loc, _ in config_warnings(cfg)] == [("geology", "k_variation")]
+    props = WallProperties.from_config(cfg.geology, CavernGrid.from_config(cfg.grid))
+    # раньше единственный сектор (φ = 180°) получал множитель 1 + 0,3·cos 180° = 0,7
+    assert np.all(props.k_mult[props.k_mult > 0] == 1.0)
+    grid3d = base.grid.model_copy(update={"nphi": 12})
+    assert [loc for loc, _ in config_warnings(base.model_copy(update={"grid": grid3d}))] == [
+        ("grid", "nphi")
+    ]
