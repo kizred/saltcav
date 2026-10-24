@@ -44,6 +44,7 @@ SECTIONS: tuple[tuple[str, str], ...] = (
     ("uncertainty", "Неопределённость"),
     ("ensemble", "Ансамбль"),
     ("mechanics", "Геомеханика"),
+    ("surrogate", "Устойчивость"),
 )
 SCHEMA_REL = Path("schema") / "saltcav-config.schema.json"
 
@@ -128,6 +129,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._worker: Worker | None = None
         self._viewer: Any = None
         self._help: Any = None
+        self.surrogate: Any = None
         self.resize(1500, 950)
 
         self.tabs = QtWidgets.QTabWidget()
@@ -142,6 +144,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs.addTab(self.leach_tab, "Выщелачивание")
         self.tabs.addTab(self.ens_tab, "Ансамбль")
         self.tabs.addTab(self.mech_tab, "Геомеханика")
+        self.sur_tab = self._placeholder(
+            "Устойчивость по ансамблю не считалась — вкладка «Ансамбль» → «Устойчивость»."
+        )
+        self.tabs.addTab(self.sur_tab, "Устойчивость")
         self._build_actions()
 
         self.progress = QtWidgets.QProgressBar()
@@ -244,6 +250,7 @@ class MainWindow(QtWidgets.QMainWindow):
         act("Сохранить ансамбль (.npz)…", self.save_ensemble, menu=mf)
         act("Сохранить геомеханику (.npz)…", self.save_mech, menu=mf)
         act("Картинка геомеханики (.png)…", self.save_mech_png, menu=mf)
+        act("Сохранить устойчивость (.npz)…", self.save_surrogate, menu=mf)
         mf.addSeparator()
         act("Выход", self.close, "Ctrl+Q", menu=mf)
         tb.addSeparator()
@@ -412,6 +419,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def _open_npz(self, path: Path) -> None:
         with np.load(path) as d:
             kind = str(d["kind"]) if "kind" in d else ""
+        if kind == "saltcav-surrogate":
+            from saltcav.surrogate.study import StudyResult
+
+            self._show_surrogate(StudyResult.load(path))
+            self.tabs.setCurrentIndex(4)
+            return
         if kind == "saltcav-mechanics":
             from saltcav.mechanics.run import MechanicsRun
 
@@ -722,8 +735,15 @@ class MainWindow(QtWidgets.QMainWindow):
         sl.addWidget(table, 1)
         b1 = QtWidgets.QPushButton("Открыть реализацию в просмотрщике")
         b2 = QtWidgets.QPushButton("Геомеханика реализации")
+        b3 = QtWidgets.QPushButton("Устойчивость по ансамблю (суррогат)…")
+        b3.setToolTip(
+            "Геомеханика для части реализаций, гауссов процесс — для остальных; "
+            "вероятность потери устойчивости. Параметры — раздел «Устойчивость»."
+        )
         sl.addWidget(b1)
         sl.addWidget(b2)
+        sl.addWidget(b3)
+        b3.clicked.connect(lambda: self.run_surrogate())
         self.ens_table = table
 
         def chosen() -> int | None:
@@ -734,9 +754,91 @@ class MainWindow(QtWidgets.QMainWindow):
         b2.clicked.connect(lambda: self.open_realization(chosen(), mech=True))
         b1.setEnabled(cfg is not None)
         b2.setEnabled(cfg is not None)
+        b3.setEnabled(cfg is not None)
         w.addWidget(side)
         w.setSizes([900, 500])
         self._replace_tab(2, w, "Ансамбль")
+
+    def run_surrogate(self) -> None:
+        cfg = self.validate()
+        if cfg is None or self.ensemble is None:
+            return
+        ens = self.ensemble
+        jobs = os.cpu_count() or 1
+
+        def job(report: Callable[[float, str], None]) -> Any:
+            from saltcav.surrogate.study import run_study
+
+            return run_study(cfg, ens.z_edges, ens.radius, seed=ens.seed, jobs=jobs,
+                             progress=report)  # fmt: skip
+
+        def done(res: Any) -> None:
+            self._show_surrogate(res)
+            self.tabs.setCurrentIndex(4)
+
+        self._start(f"Устойчивость ({ens.n} реализаций)", job, done)
+
+    def _show_surrogate(self, res: Any) -> None:
+        from saltcav.surrogate.study import KEY, TARGETS
+        from saltcav.viz.surrogate_plot import SURFACE, draw_surrogate
+
+        self.surrogate = res
+        w = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        fig = Figure(figsize=(11, 8), facecolor=SURFACE)
+        canvas = FigureCanvasQTAgg(fig)
+        draw_surrogate(fig, res)
+        w.addWidget(canvas)
+        side = QtWidgets.QWidget()
+        sl = QtWidgets.QVBoxLayout(side)
+        p, p_unc = res.prob_below()
+        lines = [
+            f"<b>P(запас &lt; {res.threshold:g}) = {p:.3f} ± {res.prob_ci(p):.3f}</b>",
+            f"с неопределённостью суррогата: {p_unc:.3f}",
+            f"P(запас &lt; 1,5) = {res.prob_below(threshold=1.5)[0]:.3f}",
+            f"расчётов МКЭ: {res.train.size}" + (f" + {res.hf.size} в 3D" if res.hf.size else ""),
+            "<br><b>P10 / P50 / P90</b>",
+        ]
+        for name, (label, _) in TARGETS.items():
+            q = res.quantiles(name)
+            lines.append(f"{label}: {q[0]:.2f} / {q[1]:.2f} / {q[2]:.2f}")
+        info = QtWidgets.QLabel("<br>".join(lines))
+        info.setWordWrap(True)
+        sl.addWidget(info)
+        sl.addWidget(QtWidgets.QLabel("Наименьший запас (по суррогату):"))
+        j = res.column(KEY)
+        crit = res.critical(20)
+        table = QtWidgets.QTableWidget(crit.size, 4)
+        table.setHorizontalHeaderLabels(["№", "запас", "± (σ)", "расчёт МКЭ"])
+        trained = {int(i): k for k, i in enumerate(res.train)}
+        for r, i in enumerate(crit):
+            fe = res.y_train[trained[int(i)], j] if int(i) in trained else None
+            vals = (int(i), round(float(res.mu[i, j]), 3), round(float(res.sd[i, j]), 3),
+                    "" if fe is None else round(float(fe), 3))  # fmt: skip
+            for c, v in enumerate(vals):
+                it = QtWidgets.QTableWidgetItem()
+                it.setData(QtCore.Qt.ItemDataRole.DisplayRole, v)
+                table.setItem(r, c, it)
+        table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        sl.addWidget(table, 1)
+        b = QtWidgets.QPushButton("Полная геомеханика выбранной реализации")
+        b.setEnabled(self.ensemble is not None and getattr(self, "ens_cfg", None) is not None)
+
+        def chosen() -> int | None:
+            r = table.currentRow()
+            return None if r < 0 else int(table.item(r, 0).data(QtCore.Qt.ItemDataRole.DisplayRole))
+
+        b.clicked.connect(lambda: self.open_realization(chosen(), mech=True))
+        sl.addWidget(b)
+        w.addWidget(side)
+        w.setSizes([1000, 420])
+        self._replace_tab(4, w, "Устойчивость")
+
+    def save_surrogate(self) -> None:
+        if getattr(self, "surrogate", None) is None:
+            return
+        p = self._save_dialog("Устойчивость", "saltcav (*.npz)", "stability.npz")
+        if p:
+            self.surrogate.save(p)
 
     def open_realization(self, index: int | None, mech: bool) -> None:
         if index is None or self.ensemble is None or self.ens_cfg is None:

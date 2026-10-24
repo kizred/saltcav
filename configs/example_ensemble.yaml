@@ -52,9 +52,23 @@ uncertainty:
   k0_log_sd: 0.2                  # общая неопределённость закона растворения
   roof_ratio_range: [1.3, 2.0]    # по литературе (Energy, 2023)
   ledge_span_log_sd: 0.3          # критический вылет карниза
+  creep_a_log_sd: 0.5   # ползучесть: множитель A от ~0,6 до ~1,6 (±1σ)
+  overburden_density_sd: 50
   rate_rel_sd: 0.05               # отклонения расхода по ступеням
 
 ensemble:
   n_realizations: 200
   seed: 20261024
   sampler: lhs
+mechanics:  # для суррогата устойчивости: 5 лет под рассолом, затем газ
+  stages:
+  - duration_years: 5
+    label: рассол
+  - duration_years: 10
+    label: газ, мин. давление
+    wellhead_pressure_mpa: 6
+    fluid_density_kg_m3: 100
+surrogate:
+  n_train: 40
+  adaptive: 30
+  fos_threshold: 1.0

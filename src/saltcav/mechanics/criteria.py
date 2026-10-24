@@ -149,6 +149,9 @@ class Summary:
     dilatant_volume_m3: FloatArray  # объём зоны FOS_dil < 1
     tension_margin_mpa: FloatArray  # мин. (σ_min − p_кам) у стенки, МПа
     max_wall_disp_m: FloatArray  # наибольшее смещение стенки, м
+    # устойчивые к одиночным углам: 5-й процентиль по стеновым элементам (по объёму)
+    fos_wall_p5: FloatArray | None = None
+    tension_margin_p5_mpa: FloatArray | None = None
 
 
 def summarize(
@@ -166,7 +169,8 @@ def summarize(
     for k in range(1, conv.size):  # скачок давления — нулевой интервал: скорость прежняя
         dy = years[k] - years[k - 1]
         rate[k] = (conv[k] - conv[k - 1]) / dy if dy > 1e-9 else rate[k - 1]
-    out: dict[str, list[float]] = {k: [] for k in ("fw", "f", "dv", "tm", "wd")}
+    out: dict[str, list[float]] = {k: [] for k in ("fw", "f", "dv", "tm", "wd", "fw5", "tm5")}
+    wvol = geo.volume[geo.wall]
     for k, (sig, u) in enumerate(zip(res.stress, res.u, strict=True)):
         fos = dilatancy_fos(sig, coeff)
         out["fw"].append(float(np.min(fos[geo.wall])) if geo.wall.any() else float("nan"))
@@ -175,6 +179,8 @@ def summarize(
         p_cav = cavity_pressure[res.stage[k]](geo.centroid[:, -1])
         tm = (wall_tangential(sig, geo.wall_tangent) - p_cav)[geo.wall]
         out["tm"].append(float(np.min(tm)) / MPA if tm.size else float("nan"))
+        out["fw5"].append(weighted_quantile(fos[geo.wall], wvol, 0.05))
+        out["tm5"].append(weighted_quantile(tm, wvol, 0.05) / MPA)
         disp = np.linalg.norm(u[cav_nodes], axis=1) if cav_nodes.size else np.zeros(1)
         out["wd"].append(float(np.max(disp)))
     return Summary(
@@ -186,4 +192,15 @@ def summarize(
         dilatant_volume_m3=np.array(out["dv"]),
         tension_margin_mpa=np.array(out["tm"]),
         max_wall_disp_m=np.array(out["wd"]),
+        fos_wall_p5=np.array(out["fw5"]),
+        tension_margin_p5_mpa=np.array(out["tm5"]),
     )
+
+
+def weighted_quantile(x: FloatArray, w: FloatArray, q: float) -> float:
+    """Квантиль ``q`` значений ``x`` с весами ``w`` (объёмы элементов)."""
+    if x.size == 0:
+        return float("nan")
+    o = np.argsort(x)
+    cw = np.cumsum(w[o])
+    return float(x[o][np.searchsorted(cw, q * cw[-1])])

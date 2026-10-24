@@ -195,3 +195,29 @@ def test_mechanics_view_3d(app: Any, tmp_path: Path) -> None:
     png = tmp_path / "v.png"
     view.save_png(str(png))
     assert png.stat().st_size > 10_000
+
+
+def test_surrogate_tab(win: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("sklearn")
+    from saltcav.surrogate import study
+
+    def fake(mc: Any, z: np.ndarray, radius: np.ndarray) -> np.ndarray:
+        rmax = float(np.max(radius))
+        return np.array([1.6 - 0.03 * rmax, 1.5 - 0.03 * rmax, 3.0, 0.1])
+
+    monkeypatch.setattr(study, "mechanics_targets", fake)
+    cfg = load_config(ROOT / "configs" / "example_ensemble.yaml")
+    rng = np.random.default_rng(2)
+    z = np.linspace(1000.0, 1040.0, 41)
+    radii = np.zeros((40, 41, 4))
+    for i in range(40):
+        radii[i, 5:36] = rng.uniform(10, 30)
+    res = study.run_study(cfg, z, radii, seed=1, jobs=1)
+    win._show_surrogate(res)
+    assert win.tabs.tabText(4) == "Устойчивость" and win.surrogate is res
+    path = tmp_path / "stab.npz"
+    res.save(path)
+    win.surrogate = None
+    win.open_path(path)
+    assert win.surrogate is not None and win.surrogate.n == 40
+    assert win.tabs.currentIndex() == 4

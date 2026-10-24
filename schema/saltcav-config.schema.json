@@ -627,6 +627,49 @@
       "title": "StageConfig",
       "type": "object"
     },
+    "SurrogateConfig": {
+      "additionalProperties": false,
+      "description": "Суррогат устойчивости (этап 7): геомеханика для части реализаций ансамбля,\nгауссов процесс по признакам формы — для остальных.",
+      "properties": {
+        "n_train": {
+          "default": 40,
+          "description": "Начальная выборка: реализаций с полным расчётом механики",
+          "minimum": 5,
+          "title": "N Train",
+          "type": "integer"
+        },
+        "adaptive": {
+          "default": 30,
+          "description": "Дополнительных расчётов у границы устойчивости (уточнение)",
+          "minimum": 0,
+          "title": "Adaptive",
+          "type": "integer"
+        },
+        "n_3d": {
+          "default": 0,
+          "description": "Из них 3D-расчётов для поправки на асимметрию; 0 — без 3D",
+          "minimum": 0,
+          "title": "N 3D",
+          "type": "integer"
+        },
+        "fos_threshold": {
+          "default": 1.0,
+          "description": "Порог запаса по дилатансии: ниже — неустойчиво",
+          "exclusiveMinimum": 0,
+          "title": "Fos Threshold",
+          "type": "number"
+        },
+        "u_stop": {
+          "default": 2.0,
+          "description": "Уточнять, пока у какой-то реализации |μ − порог|/σ < u_stop",
+          "exclusiveMinimum": 0,
+          "title": "U Stop",
+          "type": "number"
+        }
+      },
+      "title": "SurrogateConfig",
+      "type": "object"
+    },
     "TransientConfig": {
       "additionalProperties": false,
       "description": "Неустановившаяся ползучесть Мансона–Доусона (по умолчанию — соль WIPP).",
@@ -754,6 +797,21 @@
           "minimum": 0,
           "title": "Rate Rel Sd",
           "type": "number"
+        },
+        "creep_a_log_sd": {
+          "default": 0.0,
+          "description": "Геомеханика: σ ln множителя скорости ползучести A",
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Creep A Log Sd",
+          "type": "number"
+        },
+        "overburden_density_sd": {
+          "default": 0.0,
+          "description": "Геомеханика: ст. отклонение плотности покрывающих, кг/м³",
+          "minimum": 0,
+          "title": "Overburden Density Sd",
+          "type": "number"
         }
       },
       "title": "UncertaintyConfig",
@@ -814,7 +872,9 @@
         "k0_log_sd": 0.0,
         "roof_ratio_range": null,
         "ledge_span_log_sd": 0.0,
-        "rate_rel_sd": 0.0
+        "rate_rel_sd": 0.0,
+        "creep_a_log_sd": 0.0,
+        "overburden_density_sd": 0.0
       }
     },
     "ensemble": {
@@ -869,6 +929,16 @@
         "output_every_years": 1.0,
         "dilatancy_coeff": 0.27,
         "step_tolerance": 0.1
+      }
+    },
+    "surrogate": {
+      "$ref": "#/$defs/SurrogateConfig",
+      "default": {
+        "n_train": 40,
+        "adaptive": 30,
+        "n_3d": 0,
+        "fos_threshold": 1.0,
+        "u_stop": 2.0
       }
     }
   },
