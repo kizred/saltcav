@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -543,6 +544,21 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_shortcut(args: argparse.Namespace) -> int:
+    """Ярлык окна со значком: рабочий стол и меню «Пуск» / приложений."""
+    from saltcav.shortcut import create_shortcuts
+
+    try:
+        made = create_shortcuts(desktop=not args.no_desktop, menu=not args.no_menu,
+                                workdir=Path(args.workdir) if args.workdir else None)  # fmt: skip
+    except (OSError, FileNotFoundError, subprocess.CalledProcessError) as exc:
+        print(f"Ошибка: {exc}", file=sys.stderr)
+        return 1
+    for p in made:
+        print(f"ярлык: {p}")
+    return 0
+
+
 def _cmd_ensemble(args: argparse.Namespace) -> int:
     from saltcav.stochastic.ensemble import run_ensemble
 
@@ -728,6 +744,11 @@ def main(argv: list[str] | None = None) -> int:
     p_rep.add_argument("--data", help="папка данных скважины (сводка и замечания)")
     p_rep.add_argument("--calibrate", action="store_true", help="откалибровать по --data")
 
+    p_sc = sub.add_parser("shortcut", help="ярлык окна со значком (рабочий стол, меню «Пуск»)")
+    p_sc.add_argument("--no-desktop", action="store_true", help="без ярлыка на рабочем столе")
+    p_sc.add_argument("--no-menu", action="store_true", help="без ярлыка в меню")
+    p_sc.add_argument("--workdir", help="рабочая папка окна (по умолчанию — текущая)")
+
     args = parser.parse_args(argv)
     if args.command == "version":
         print(__version__)
@@ -756,6 +777,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_calibrate(args)
     if args.command == "report":
         return _cmd_report(args)
+    if args.command == "shortcut":
+        return _cmd_shortcut(args)
     return 2  # pragma: no cover
 
 

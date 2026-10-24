@@ -435,7 +435,11 @@ def run_viewer(  # pragma: no cover - окно
 ) -> int:
     """Открыть окно и ждать его закрытия."""
     _, _, QtWidgets = _qt()
+    from saltcav.gui.icons import app_icon, set_windows_app_id
+
+    set_windows_app_id()
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+    app.setWindowIcon(app_icon())
     win = build_window(res, source, start=start, field=field)
     win.show()
     return int(app.exec())

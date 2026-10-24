@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "saltcav"
-version = "1.0.0"
+version = "1.0.1"
 description = "Стохастическая модель скважинного выщелачивания соляных камер (NaCl)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
+authors = [{ name = "Sergei Kizre" }]
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",

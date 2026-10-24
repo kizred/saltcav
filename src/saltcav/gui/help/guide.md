@@ -21,7 +21,9 @@ pip install -e ".[gui,mechanics,surrogate,calibration]"
 saltcav gui
 ```
 
-После установки окно запускается и ярлыком `saltcav-gui`. Группы: `gui` — окно,
+`saltcav shortcut` (из папки проекта, в активированном окружении) создаёт ярлык со
+значком на рабочем столе и в меню «Пуск»; рабочая папка ярлыка — та, из которой
+выполнена команда. Интернет нужен только для установки; программа работает без сети. Группы: `gui` — окно,
 `mechanics` — геомеханика (Gmsh, PARDISO для 3D), `surrogate` — устойчивость по
 ансамблю, `calibration` — MCMC.
 
@@ -246,6 +248,7 @@ saltcav calibrate файл.yaml --data папка --plot calib.png --write-confi
 saltcav synth  файл.yaml --out папка --truth k0=2e-5   синтетические данные
 saltcav report файл.yaml --out отчёт.html [--all]      отчёт
 saltcav schema                           схема YAML для редактора
+saltcav shortcut                         ярлык со значком (рабочий стол, «Пуск»)
 saltcav gui    [файл]                    это окно
 ```
 

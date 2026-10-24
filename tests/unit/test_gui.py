@@ -290,3 +290,7 @@ def test_report_from_window(win: Any, tmp_path: Path) -> None:
     win.make_report(out, ["leaching"], open_browser=False)
     win.wait()
     assert out.exists() and "2. Выщелачивание" in out.read_text(encoding="utf-8")
+
+
+def test_window_icon(win: Any) -> None:
+    assert not win.windowIcon().isNull()
