@@ -11,17 +11,15 @@
 
 from __future__ import annotations
 
-import os
-import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
 from numpy.typing import NDArray
 
+from saltcav.mechanics.linsolve import factorize_spd as _factorize_spd
 from saltcav.mesh.cavern3d import Mesh3D
 
 FloatArray = NDArray[np.float64]
@@ -372,36 +370,3 @@ class FEM3D:
         if f.size == 0:
             return 0.0
         return float(-np.sum(np.einsum("fpa,fpa->fp", pts, nda) * FQW[None, :]) / 3.0)
-
-
-def _factorize_spd(
-    k: sp.csr_matrix, solver: str, holder: list[Any]
-) -> Callable[[FloatArray], FloatArray]:
-    """Разложение симметричной положительно определённой матрицы → функция решения.
-
-    ``holder`` хранит один экземпляр PARDISO на задачу: при новом разложении память
-    прежнего освобождается, а не копится."""
-    if solver in ("auto", "pardiso"):
-        if sys.platform.startswith("linux"):
-            # Gmsh на Linux собран с GNU OpenMP (libgomp), MKL по умолчанию — с Intel
-            # OpenMP (libiomp5); две среды OpenMP в одном процессе падают. Переводим MKL
-            # на libgomp — до первой загрузки MKL.
-            os.environ.setdefault("MKL_THREADING_LAYER", "GNU")
-        try:
-            import pypardiso
-        except ImportError:
-            if solver == "pardiso":
-                raise
-        else:
-            if holder:
-                ps = holder[0]
-                ps.free_memory(everything=False)
-            else:
-                ps = pypardiso.PyPardisoSolver()
-                ps.set_matrix_type(2)  # вещественная симметричная положительно определённая
-                holder.append(ps)
-            upper = sp.triu(k, format="csr")
-            ps.factorize(upper)
-            return lambda b: np.asarray(ps.solve(upper, b))
-    lu = spla.splu(sp.csc_matrix(k))
-    return lambda b: np.asarray(lu.solve(b))
