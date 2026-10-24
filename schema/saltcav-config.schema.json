@@ -2,6 +2,37 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/kizred/saltcav/schema/saltcav-config.schema.json",
   "$defs": {
+    "CreepBranchConfig": {
+      "additionalProperties": false,
+      "description": "Ветвь установившейся ползучести: ε̇ = A·exp(−Q/RT)·(σ/1 МПа)^n.",
+      "properties": {
+        "a_per_day": {
+          "description": "A, 1/сут (BGRa: 0,18)",
+          "exclusiveMinimum": 0,
+          "title": "A Per Day",
+          "type": "number"
+        },
+        "n": {
+          "description": "Показатель степени n (BGRa: 5)",
+          "exclusiveMinimum": 0,
+          "title": "N",
+          "type": "number"
+        },
+        "q_kj_per_mol": {
+          "description": "Энергия активации Q, кДж/моль (BGRa: 54)",
+          "minimum": 0,
+          "title": "Q Kj Per Mol",
+          "type": "number"
+        }
+      },
+      "required": [
+        "a_per_day",
+        "n",
+        "q_kj_per_mol"
+      ],
+      "title": "CreepBranchConfig",
+      "type": "object"
+    },
     "EnsembleConfig": {
       "additionalProperties": false,
       "description": "Ансамбль Монте-Карло (saltcav ensemble).",
@@ -319,6 +350,199 @@
       "title": "LeachingConfig",
       "type": "object"
     },
+    "MechanicsConfig": {
+      "additionalProperties": false,
+      "description": "Геомеханика (этап 6): осесимметричный МКЭ вокруг формы камеры, ползучесть соли.\n\nФорма камеры — эквивалентный радиус √(среднее R²) по азимуту на выбранный момент.",
+      "properties": {
+        "day": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Момент формы, сут; пусто — конец выщелачивания",
+          "title": "Day"
+        },
+        "h_wall_m": {
+          "default": 1.0,
+          "description": "Размер элемента у стенки, м",
+          "exclusiveMinimum": 0,
+          "title": "H Wall M",
+          "type": "number"
+        },
+        "r_min_m": {
+          "default": 0.5,
+          "description": "Радиус, ниже которого сечение считается массивом, м",
+          "exclusiveMinimum": 0,
+          "title": "R Min M",
+          "type": "number"
+        },
+        "r_factor": {
+          "default": 8.0,
+          "description": "Внешний радиус области / наибольший радиус камеры",
+          "exclusiveMinimum": 1,
+          "title": "R Factor",
+          "type": "number"
+        },
+        "height_factor": {
+          "default": 3.0,
+          "description": "Запас области сверху и снизу / размер камеры",
+          "exclusiveMinimum": 0,
+          "title": "Height Factor",
+          "type": "number"
+        },
+        "outer": {
+          "default": "free",
+          "description": "Внешняя граница: free — одиночная камера, roller — ряд камер (ячейка)",
+          "pattern": "^(free|roller)$",
+          "title": "Outer",
+          "type": "string"
+        },
+        "cell_radius_m": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Радиус ячейки (половина расстояния между камерами) для roller",
+          "title": "Cell Radius M"
+        },
+        "youngs_modulus_gpa": {
+          "default": 25.0,
+          "description": "Модуль Юнга соли, ГПа",
+          "exclusiveMinimum": 0,
+          "title": "Youngs Modulus Gpa",
+          "type": "number"
+        },
+        "poisson": {
+          "default": 0.25,
+          "description": "Коэффициент Пуассона",
+          "exclusiveMaximum": 0.5,
+          "exclusiveMinimum": 0,
+          "title": "Poisson",
+          "type": "number"
+        },
+        "overburden_density_kg_m3": {
+          "default": 2300.0,
+          "description": "Средняя плотность пород над камерой, кг/м³",
+          "exclusiveMinimum": 0,
+          "title": "Overburden Density Kg M3",
+          "type": "number"
+        },
+        "surface_temperature_c": {
+          "default": 10.0,
+          "description": "Температура на поверхности, °C",
+          "title": "Surface Temperature C",
+          "type": "number"
+        },
+        "geothermal_gradient_c_per_km": {
+          "default": 30.0,
+          "description": "Геотермический градиент, °C/км",
+          "minimum": 0,
+          "title": "Geothermal Gradient C Per Km",
+          "type": "number"
+        },
+        "creep": {
+          "description": "Ветви установившейся ползучести (сумма); по умолчанию BGRa",
+          "items": {
+            "$ref": "#/$defs/CreepBranchConfig"
+          },
+          "title": "Creep",
+          "type": "array"
+        },
+        "transient": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransientConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Неустановившаяся ползучесть Мансона–Доусона; null — выключить"
+        },
+        "stages": {
+          "description": "Ступени давления в камере по порядку",
+          "items": {
+            "$ref": "#/$defs/PressureStageConfig"
+          },
+          "minItems": 1,
+          "title": "Stages",
+          "type": "array"
+        },
+        "output_every_years": {
+          "default": 1.0,
+          "description": "Сохранять каждые N лет",
+          "exclusiveMinimum": 0,
+          "title": "Output Every Years",
+          "type": "number"
+        },
+        "dilatancy_coeff": {
+          "default": 0.27,
+          "description": "Критерий дилатансии √J2 = a·I1 (Ratigan: 0,27)",
+          "exclusiveMinimum": 0,
+          "title": "Dilatancy Coeff",
+          "type": "number"
+        },
+        "step_tolerance": {
+          "default": 0.1,
+          "description": "Изменение девиатора напряжений за шаг, доля",
+          "exclusiveMinimum": 0,
+          "maximum": 0.5,
+          "title": "Step Tolerance",
+          "type": "number"
+        }
+      },
+      "title": "MechanicsConfig",
+      "type": "object"
+    },
+    "PressureStageConfig": {
+      "additionalProperties": false,
+      "description": "Ступень эксплуатации камеры после выщелачивания.",
+      "properties": {
+        "duration_years": {
+          "description": "Длительность, лет",
+          "exclusiveMinimum": 0,
+          "title": "Duration Years",
+          "type": "number"
+        },
+        "wellhead_pressure_mpa": {
+          "default": 0.0,
+          "description": "Давление на устье, МПа (рассол, открытая скважина — 0)",
+          "minimum": 0,
+          "title": "Wellhead Pressure Mpa",
+          "type": "number"
+        },
+        "fluid_density_kg_m3": {
+          "default": 1200.0,
+          "description": "Плотность среды в камере, кг/м³ (рассол ≈ 1200)",
+          "exclusiveMinimum": 0,
+          "title": "Fluid Density Kg M3",
+          "type": "number"
+        },
+        "label": {
+          "default": "",
+          "description": "Подпись ступени",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "duration_years"
+      ],
+      "title": "PressureStageConfig",
+      "type": "object"
+    },
     "ScheduleConfig": {
       "additionalProperties": false,
       "description": "График режима выщелачивания.",
@@ -387,6 +611,60 @@
         "blanket_depth_m"
       ],
       "title": "StageConfig",
+      "type": "object"
+    },
+    "TransientConfig": {
+      "additionalProperties": false,
+      "description": "Неустановившаяся ползучесть Мансона–Доусона (по умолчанию — соль WIPP).",
+      "properties": {
+        "mu_gpa": {
+          "default": 12.4,
+          "description": "Модуль сдвига в законе, ГПа",
+          "exclusiveMinimum": 0,
+          "title": "Mu Gpa",
+          "type": "number"
+        },
+        "k0": {
+          "default": 627500.0,
+          "description": "K0 в ε_t* = K0·exp(cT)·(σ/μ)^m",
+          "exclusiveMinimum": 0,
+          "title": "K0",
+          "type": "number"
+        },
+        "c_per_k": {
+          "default": 0.009198,
+          "description": "c, 1/К",
+          "title": "C Per K",
+          "type": "number"
+        },
+        "m": {
+          "default": 3.0,
+          "description": "Показатель m",
+          "exclusiveMinimum": 0,
+          "title": "M",
+          "type": "number"
+        },
+        "alpha_w": {
+          "default": -17.37,
+          "description": "α_w — упрочнение",
+          "title": "Alpha W",
+          "type": "number"
+        },
+        "beta_w": {
+          "default": -7.738,
+          "description": "β_w — упрочнение",
+          "title": "Beta W",
+          "type": "number"
+        },
+        "delta": {
+          "default": 0.58,
+          "description": "δ — возврат",
+          "minimum": 0,
+          "title": "Delta",
+          "type": "number"
+        }
+      },
+      "title": "TransientConfig",
       "type": "object"
     },
     "UncertaintyConfig": {
@@ -531,6 +809,50 @@
         "n_realizations": 100,
         "seed": 12345,
         "sampler": "mc"
+      }
+    },
+    "mechanics": {
+      "$ref": "#/$defs/MechanicsConfig",
+      "default": {
+        "day": null,
+        "h_wall_m": 1.0,
+        "r_min_m": 0.5,
+        "r_factor": 8.0,
+        "height_factor": 3.0,
+        "outer": "free",
+        "cell_radius_m": null,
+        "youngs_modulus_gpa": 25.0,
+        "poisson": 0.25,
+        "overburden_density_kg_m3": 2300.0,
+        "surface_temperature_c": 10.0,
+        "geothermal_gradient_c_per_km": 30.0,
+        "creep": [
+          {
+            "a_per_day": 0.18,
+            "n": 5.0,
+            "q_kj_per_mol": 54.0
+          }
+        ],
+        "transient": {
+          "alpha_w": -17.37,
+          "beta_w": -7.738,
+          "c_per_k": 0.009198,
+          "delta": 0.58,
+          "k0": 627500.0,
+          "m": 3.0,
+          "mu_gpa": 12.4
+        },
+        "stages": [
+          {
+            "duration_years": 30.0,
+            "fluid_density_kg_m3": 1200.0,
+            "label": "рассол",
+            "wellhead_pressure_mpa": 0.0
+          }
+        ],
+        "output_every_years": 1.0,
+        "dilatancy_coeff": 0.27,
+        "step_tolerance": 0.1
       }
     }
   },
