@@ -29,9 +29,19 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from saltcav.mechanics.fem import P_DEV
-
 FloatArray = NDArray[np.float64]
+
+
+def trace_vector(n: int) -> FloatArray:
+    """След в записи Манделя: 4 компоненты (осесимметрия) или 6 (3D)."""
+    return np.array([1.0, 1.0, 1.0] + [0.0] * (n - 3))
+
+
+def dev_projector(n: int) -> FloatArray:
+    m = trace_vector(n)
+    return np.asarray(np.eye(n) - np.outer(m, m) / 3.0)
+
+
 R_GAS = 8.314462618  # Дж/(моль·К)
 MPA = 1.0e6
 SIGMA_FLOOR = 1.0  # Па: ниже — напряжение считается нулевым (нет течения)
@@ -105,7 +115,8 @@ class CreepLaw:
         поэтому неустановившаяся деформация за шаг не больше ε_t* − ζ. Иначе при
         малых напряжениях, где F огромен, а ε_t* мал, шаг был бы привязан к секундам.
         """
-        s = np.einsum("ij,...j->...i", P_DEV, sig)
+        p_dev = dev_projector(sig.shape[-1])
+        s = np.einsum("ij,...j->...i", p_dev, sig)
         seq = np.sqrt(1.5 * np.einsum("...i,...i->...", s, s))
         ss, dss = self.steady(seq, t_k)
         if self.transient is None:
@@ -129,12 +140,12 @@ class CreepLaw:
         # dε̇/dσ = (3/2)F[(f/σ)P + (3/2)(f'/σ² − f/σ³) s sᵀ]
         a1 = coef
         a2 = np.where(active, 2.25 * f * (dss / safe**2 - ss / safe**3), 0.0)
-        tang = a1[..., None, None] * P_DEV + a2[..., None, None] * np.einsum(
+        tang = a1[..., None, None] * p_dev + a2[..., None, None] * np.einsum(
             "...i,...j->...ij", s, s
         )
         return rate, tang, ss, f
 
 
 def von_mises(sig: FloatArray) -> FloatArray:
-    s = np.einsum("ij,...j->...i", P_DEV, sig)
+    s = np.einsum("ij,...j->...i", dev_projector(sig.shape[-1]), sig)
     return np.asarray(np.sqrt(1.5 * np.einsum("...i,...i->...", s, s)))

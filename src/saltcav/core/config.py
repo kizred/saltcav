@@ -287,14 +287,22 @@ class PressureStageConfig(_Strict):
 
 
 class MechanicsConfig(_Strict):
-    """Геомеханика (этап 6): осесимметричный МКЭ вокруг формы камеры, ползучесть соли.
+    """Геомеханика: МКЭ вокруг формы камеры на выбранный момент, ползучесть соли.
 
-    Форма камеры — эквивалентный радиус √(среднее R²) по азимуту на выбранный момент.
+    Модель axisym — осесимметрия по эквивалентному радиусу √(среднее R²) (секунды);
+    3d — полная форма R(z, φ) на тетраэдрах (минуты).
     """
 
     day: Annotated[
         float | None, Field(ge=0, description="Момент формы, сут; пусто — конец выщелачивания")
     ] = None
+    model: str = Field(
+        default="axisym",
+        pattern="^(axisym|3d)$",
+        description="axisym — осесимметрия по эквивалентному радиусу (секунды); "
+        "3d — полная форма R(z, φ), тетраэдры (минуты, нужен pypardiso)",
+    )
+    h_wall_3d_m: Annotated[float, Field(gt=0, description="3D: размер элемента у стенки, м")] = 3.0
     h_wall_m: Annotated[float, Field(gt=0, description="Размер элемента у стенки, м")] = 1.0
     r_min_m: Annotated[
         float, Field(gt=0, description="Радиус, ниже которого сечение считается массивом, м")

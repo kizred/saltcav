@@ -167,3 +167,31 @@ def test_help_dialog_and_f1(win: Any) -> None:
     dlg = win._help
     assert dlg.isVisible() and dlg.tabs.currentIndex() == 1
     dlg.close()
+
+
+def test_mechanics_view_3d(app: Any, tmp_path: Path) -> None:
+    pytest.importorskip("gmsh")
+    pytest.importorskip("pyvista")
+    from saltcav.core.config import MechanicsConfig, PressureStageConfig
+    from saltcav.gui.mech_view import MechanicsView
+    from saltcav.mechanics.run import MechanicsRun, run_from_shape
+
+    z = np.linspace(1000.0, 1030.0, 31)
+    r = np.c_[8.0, 12.0, 8.0, 12.0] * np.sin(np.pi * (z[:, None] - 1000.0) / 30.0) ** 0.5 + 0.1
+    mc = MechanicsConfig(
+        model="3d", h_wall_3d_m=3.0, transient=None, r_factor=5.0, height_factor=2.0,
+        stages=[PressureStageConfig(duration_years=0.2)], output_every_years=0.1,
+    )  # fmt: skip
+    run = run_from_shape(mc, z, r, "асимметрия")
+    assert run.dim == 3 and run.wall_elements is not None and run.wall_elements.size > 0
+    path = tmp_path / "m3.npz"
+    run.save(path)
+    back = MechanicsRun.load(path)
+    view = MechanicsView(back)
+    assert view.azimuth.isVisibleTo(view) or view.azimuth.parent() is not None
+    view.azimuth.setValue(45)
+    view.slider.setValue(0)
+    view.left.setCurrentIndex(view.left.findData("vm"))
+    png = tmp_path / "v.png"
+    view.save_png(str(png))
+    assert png.stat().st_size > 10_000

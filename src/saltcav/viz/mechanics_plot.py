@@ -20,8 +20,11 @@ INK, INK2, GRID, LINE, ACCENT, SURFACE = (
 def _window(run: MechanicsRun) -> tuple[float, float, float, float]:
     e = run.cavity_edges
     pts = run.nodes[np.unique(e)] if e.size else run.nodes
-    r_max = float(np.max(pts[:, 0]))
-    y_lo, y_hi = float(np.min(pts[:, 1])), float(np.max(pts[:, 1]))
+    if run.dim == 3:
+        r_max = float(np.max(np.hypot(pts[:, 0], pts[:, 1])))
+    else:
+        r_max = float(np.max(pts[:, 0]))
+    y_lo, y_hi = float(np.min(pts[:, -1])), float(np.max(pts[:, -1]))
     h = y_hi - y_lo
     pad = max(0.8 * h, 1.5 * r_max)
     return 2.4 * r_max, y_lo - 0.5 * pad, y_hi + 0.5 * pad, r_max
@@ -52,8 +55,8 @@ def element_field(run: MechanicsRun, i: int, key: str) -> np.ndarray:
     if key == "vm":
         return np.asarray(von_mises(sig) / 1e6)
     if key == "disp":
-        disp = np.hypot(run.u[i][:, 0], run.u[i][:, 1])
-        return np.asarray(disp[run.tri[:, :3]].mean(axis=1) * 100)
+        disp = np.linalg.norm(run.u[i], axis=1)
+        return np.asarray(disp[run.tri[:, : run.dim + 1]].mean(axis=1) * 100)
     if key == "creep":
         return np.asarray(run.creep_eq[i] * 100)
     if key == "s3":
@@ -74,9 +77,14 @@ def field_limits(run: MechanicsRun, key: str) -> tuple[float, float]:
 def draw_section(
     fig: Any, ax: Any, run: MechanicsRun, i: int, left: str, right: str,
     limits: dict[str, tuple[float, float]] | None = None, deformed: float = 0.0,
+    azimuth_deg: float = 0.0,
 ) -> None:  # fmt: skip
     """Разрез через ось: слева поле ``left``, справа ``right``; ``deformed`` — масштаб
-    смещений для контура камеры (0 — исходный контур)."""
+    смещений для контура камеры (0 — исходный контур). В 3D — вертикальная плоскость
+    через ось под азимутом ``azimuth_deg``: справа — сторона φ, слева — φ + 180°."""
+    if run.dim == 3:
+        _draw_section_3d(fig, ax, run, i, left, right, limits, azimuth_deg)
+        return
     from matplotlib.tri import Triangulation
 
     tri_r = Triangulation(run.nodes[:, 0], run.nodes[:, 1], run.tri[:, :3])
@@ -102,6 +110,88 @@ def draw_section(
     ax.set_facecolor(SURFACE)
     ax.set_xlabel("r, м")
     ax.set_ylabel("z = −глубина, м")
+
+
+def _slice_3d(run: MechanicsRun, i: int, keys: tuple[str, ...], azimuth_deg: float) -> Any:
+    """Сечение тетраэдров вертикальной плоскостью через ось (PyVista)."""
+    try:
+        import pyvista as pv
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError('для разреза 3D нужен PyVista: pip install -e ".[viz]"') from exc
+    tets = run.tri[:, :4]
+    cells = np.hstack([np.full((tets.shape[0], 1), 4), tets]).ravel()
+    grid = pv.UnstructuredGrid(cells, np.full(tets.shape[0], pv.CellType.TETRA), run.nodes)
+    for k in keys:
+        grid.cell_data[k] = element_field(run, i, k)
+    phi = np.deg2rad(azimuth_deg)
+    sl = grid.slice(normal=(-np.sin(phi), np.cos(phi), 0.0), origin=(0.0, 0.0, 0.0))
+    return sl.triangulate(), phi
+
+
+def _draw_section_3d(
+    fig: Any, ax: Any, run: MechanicsRun, i: int, left: str, right: str,
+    limits: dict[str, tuple[float, float]] | None, azimuth_deg: float,
+) -> None:  # fmt: skip
+    from matplotlib.tri import Triangulation
+
+    sl, phi = _slice_3d(run, i, (left, right), azimuth_deg)
+    pts = np.asarray(sl.points)
+    s = pts[:, 0] * np.cos(phi) + pts[:, 1] * np.sin(phi)  # координата вдоль плоскости
+    faces = np.asarray(sl.faces).reshape(-1, 4)[:, 1:]
+    tri = Triangulation(s, pts[:, 2], faces)
+    cen = s[faces].mean(axis=1)
+    x_lim, y_lo, y_hi, _ = _window(run)
+    lims = limits or {}
+    for key, side, x0 in ((left, cen < 0, 0.0), (right, cen >= 0, 0.53)):
+        label, cmap = MECH_FIELDS[key]
+        lo, hi = lims[key] if key in lims else field_limits(run, key)
+        vals = np.asarray(sl.cell_data[key], dtype=float)
+        m = ax.tripcolor(tri, facecolors=np.where(side, vals, np.nan), cmap=cmap, vmin=lo, vmax=hi)
+        cax = ax.inset_axes((x0, -0.2, 0.47, 0.03))
+        cb = fig.colorbar(m, cax=cax, orientation="horizontal")
+        cb.set_label(("← " if x0 == 0 else "") + label + (" →" if x0 > 0 else ""),
+                     fontsize=8, color=INK2)  # fmt: skip
+        cb.ax.tick_params(labelsize=7)
+    ax.axvline(0, color=INK2, lw=0.6, ls=":")
+    ax.set_xlim(-x_lim, x_lim)
+    ax.set_ylim(y_lo, y_hi)
+    ax.set_aspect("equal")
+    ax.set_facecolor(SURFACE)
+    ax.set_xlabel(f"← φ = {(azimuth_deg + 180) % 360:.0f}°    расстояние от оси, м    "
+                  f"φ = {azimuth_deg % 360:.0f}° →")  # fmt: skip
+    ax.set_ylabel("z = −глубина, м")
+
+
+def widest_azimuth(run: MechanicsRun) -> float:
+    """Азимут наибольшего радиуса камеры, ° (для разреза 3D); в осесимметрии — 0."""
+    if run.dim != 3 or run.cavity_edges.size == 0:
+        return 0.0
+    p = run.nodes[np.unique(run.cavity_edges)]
+    k = int(np.argmax(np.hypot(p[:, 0], p[:, 1])))
+    return float(np.rad2deg(np.arctan2(p[k, 1], p[k, 0])) % 360)
+
+
+def draw_wall_map(fig: Any, ax: Any, run: MechanicsRun, i: int, key: str = "fos",
+                  limits: dict[str, tuple[float, float]] | None = None) -> None:  # fmt: skip
+    """Развёртка стенки 3D-камеры: азимут × глубина, поле в стеновых элементах."""
+    if run.wall_elements is None or run.wall_centroids is None or run.wall_elements.size == 0:
+        ax.text(0.5, 0.5, "нет данных стенки", ha="center", transform=ax.transAxes)
+        return
+    c = run.wall_centroids
+    phi = np.rad2deg(np.arctan2(c[:, 1], c[:, 0])) % 360
+    vals = element_field(run, i, key)[run.wall_elements]
+    label, cmap = MECH_FIELDS[key]
+    lo, hi = (limits or {}).get(key) or field_limits(run, key)
+    m = ax.scatter(phi, -c[:, 2], c=vals, s=10, cmap=cmap, vmin=lo, vmax=hi, lw=0)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 360)
+    ax.set_xticks(range(0, 361, 90))
+    ax.set_xlabel("азимут φ, °")
+    ax.set_ylabel("глубина, м")
+    ax.set_facecolor(SURFACE)
+    cb = fig.colorbar(m, ax=ax, fraction=0.05, pad=0.02)
+    cb.set_label(label, fontsize=8, color=INK2)
+    cb.ax.tick_params(labelsize=7)
 
 
 def draw_series(ax3: Any, ax4: Any, run: MechanicsRun, i: int) -> None:
@@ -148,10 +238,15 @@ def plot_mechanics(run: MechanicsRun, out: str | Path, index: int = -1, title: s
     ax1, ax2 = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
     gs3 = gs[2].subgridspec(2, 1, hspace=0.35)
     ax3, ax4 = fig.add_subplot(gs3[0]), fig.add_subplot(gs3[1])
-    draw_section(fig, ax1, run, i, "fos", "vm")
+    draw_section(fig, ax1, run, i, "fos", "vm", azimuth_deg=widest_azimuth(run))
     ax1.set_title("Запас по дилатансии | напряжения", loc="left", fontsize=10, color=INK)
-    draw_section(fig, ax2, run, i, "disp", "creep")
-    ax2.set_title("Смещения | накопленная ползучесть", loc="left", fontsize=10, color=INK)
+    if run.dim == 3:
+        draw_wall_map(fig, ax2, run, i, "fos")
+        ax2.set_title("Стенка: запас по дилатансии (развёртка)", loc="left", fontsize=10,
+                      color=INK)  # fmt: skip
+    else:
+        draw_section(fig, ax2, run, i, "disp", "creep")
+        ax2.set_title("Смещения | накопленная ползучесть", loc="left", fontsize=10, color=INK)
     draw_series(ax3, ax4, run, i)
     head = title or f"{run.name}: геомеханика формы на {run.day:.0f} сут"
     fig.suptitle(f"{head}   |   {run.years[i]:.1f} лет", x=0.02, ha="left", color=INK, fontsize=12)

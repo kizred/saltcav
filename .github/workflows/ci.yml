@@ -29,4 +29,9 @@ jobs:
       - name: Тесты (без slow)
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest -m "not slow" --cov --cov-report=term-missing
+        run: |
+          set -o pipefail
+          python -X faulthandler -m pytest -m "not slow" -p no:cacheprovider -v --cov --cov-report=term-missing 2>&1 | tee pytest.log
+      - name: Хвост журнала тестов при сбое
+        if: failure()
+        run: echo "::error title=pytest::$(tail -n 80 pytest.log | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')"

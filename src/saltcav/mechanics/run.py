@@ -9,13 +9,14 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
 from saltcav.core.config import MechanicsConfig
 from saltcav.mechanics.creep import CreepLaw, MunsonDawson, PowerBranch
-from saltcav.mechanics.criteria import Summary, summarize
+from saltcav.mechanics.criteria import Summary, element_geometry, summarize
 from saltcav.mechanics.fem import AxiFEM
 from saltcav.mechanics.solver import (
     YEAR,
@@ -111,6 +112,14 @@ class MechanicsRun:
     n_steps: int
     stage_labels: list[str]
     dilatancy_coeff: float = 0.27
+    # стеновые элементы: номера и центры (для карты стенки в 3D)
+    wall_elements: NDArray[np.int64] | None = None
+    wall_centroids: FloatArray | None = None
+
+    @property
+    def dim(self) -> int:
+        """2 — осесимметрия (r, y), 3 — полная 3D-постановка (x, y, z)."""
+        return int(self.nodes.shape[1])
 
     @property
     def years(self) -> FloatArray:
@@ -131,6 +140,10 @@ class MechanicsRun:
             s_convergence_rate_pct_yr=s.convergence_rate_pct_yr, s_min_fos_wall=s.min_fos_wall,
             s_min_fos=s.min_fos, s_dilatant_volume_m3=s.dilatant_volume_m3,
             s_tension_margin_mpa=s.tension_margin_mpa, s_max_wall_disp_m=s.max_wall_disp_m,
+            wall_elements=np.zeros(0, dtype=np.int64) if self.wall_elements is None
+            else self.wall_elements,
+            wall_centroids=np.zeros((0, 3)) if self.wall_centroids is None
+            else self.wall_centroids,
         )  # fmt: skip
 
     @classmethod
@@ -151,6 +164,8 @@ class MechanicsRun:
                 leaching_volume=float(d["leaching_volume_m3"]), summary=summ,
                 n_steps=int(d["n_steps"]), stage_labels=[str(x) for x in d["stage_labels"]],
                 dilatancy_coeff=float(d["dilatancy_coeff"]),
+                wall_elements=d["wall_elements"] if "wall_elements" in d else None,
+                wall_centroids=d["wall_centroids"] if "wall_centroids" in d else None,
             )  # fmt: skip
 
 
@@ -163,18 +178,35 @@ def run_from_shape(
     leaching_volume: float = float("nan"),
     progress: Callable[[float], None] | None = None,
 ) -> MechanicsRun:
-    """Полный расчёт по профилю R(z) или R(z, φ)."""
-    mesh = build_mesh(mc, depth, radius)
-    fem = AxiFEM(mesh)
+    """Полный расчёт по профилю R(z) или R(z, φ) (``mc.model``: axisym или 3d)."""
+    fem: Any
+    if mc.model == "3d":
+        from saltcav.mechanics.fem3d import FEM3D
+        from saltcav.mesh.cavern3d import cavern_mesh_3d
+
+        r_out = mc.cell_radius_m if mc.outer == "roller" else None
+        mesh3, _ = cavern_mesh_3d(
+            depth, radius, mc.h_wall_3d_m, mc.r_factor, mc.height_factor, mc.r_min_m, r_out
+        )
+        fem = FEM3D(mesh3)
+        elements, boundary = mesh3.tets, mesh3.faces["cavity"]
+    else:
+        mesh = build_mesh(mc, depth, radius)
+        fem = AxiFEM(mesh)
+        elements, boundary = mesh.tri, mesh.edges["cavity"]
     setup, pressures = setup_from_config(mc)
     res = run_mechanics(fem, setup, progress)
     summ = summarize(fem, res, pressures, mc.dilatancy_coeff)
+    geo = element_geometry(fem)
+    wall = np.flatnonzero(geo.wall)
     return MechanicsRun(
         name=name,
         day=day,
-        nodes=mesh.nodes,
-        tri=mesh.tri,
-        cavity_edges=mesh.edges["cavity"],
+        nodes=fem.mesh.nodes,
+        tri=elements,
+        cavity_edges=boundary,
+        wall_elements=wall,
+        wall_centroids=geo.centroid[wall],
         times=np.asarray(res.times),
         stage=np.asarray(res.stage, dtype=np.int64),
         u=np.asarray(res.u),

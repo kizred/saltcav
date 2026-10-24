@@ -352,7 +352,7 @@
     },
     "MechanicsConfig": {
       "additionalProperties": false,
-      "description": "Геомеханика (этап 6): осесимметричный МКЭ вокруг формы камеры, ползучесть соли.\n\nФорма камеры — эквивалентный радиус √(среднее R²) по азимуту на выбранный момент.",
+      "description": "Геомеханика: МКЭ вокруг формы камеры на выбранный момент, ползучесть соли.\n\nМодель axisym — осесимметрия по эквивалентному радиусу √(среднее R²) (секунды);\n3d — полная форма R(z, φ) на тетраэдрах (минуты).",
       "properties": {
         "day": {
           "anyOf": [
@@ -367,6 +367,20 @@
           "default": null,
           "description": "Момент формы, сут; пусто — конец выщелачивания",
           "title": "Day"
+        },
+        "model": {
+          "default": "axisym",
+          "description": "axisym — осесимметрия по эквивалентному радиусу (секунды); 3d — полная форма R(z, φ), тетраэдры (минуты, нужен pypardiso)",
+          "pattern": "^(axisym|3d)$",
+          "title": "Model",
+          "type": "string"
+        },
+        "h_wall_3d_m": {
+          "default": 3.0,
+          "description": "3D: размер элемента у стенки, м",
+          "exclusiveMinimum": 0,
+          "title": "H Wall 3D M",
+          "type": "number"
         },
         "h_wall_m": {
           "default": 1.0,
@@ -815,6 +829,8 @@
       "$ref": "#/$defs/MechanicsConfig",
       "default": {
         "day": null,
+        "model": "axisym",
+        "h_wall_3d_m": 3.0,
         "h_wall_m": 1.0,
         "r_min_m": 0.5,
         "r_factor": 8.0,

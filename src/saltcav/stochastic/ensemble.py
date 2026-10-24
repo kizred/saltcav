@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import multiprocessing as mp
 import os
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
@@ -232,7 +233,10 @@ def run_ensemble(
             if progress:
                 progress(len(outs), n)
     else:
-        with ProcessPoolExecutor(max_workers=jobs) as pool:
+        # forkserver/spawn, не fork: в окне и при PARDISO в процессе уже есть потоки,
+        # fork таких процессов может зависнуть (на Windows и так spawn)
+        method = "forkserver" if "forkserver" in mp.get_all_start_methods() else "spawn"
+        with ProcessPoolExecutor(max_workers=jobs, mp_context=mp.get_context(method)) as pool:
             chunk = max(1, min(n // (4 * jobs), 16))
             try:
                 for o in pool.map(_run_one, tasks, chunksize=chunk):

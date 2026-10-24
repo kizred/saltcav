@@ -183,7 +183,10 @@ def _cmd_mechanics(args: argparse.Namespace) -> int:
         print(f"Ошибка в {src}:\n{exc}", file=sys.stderr)
         return 1
     s = run.summary
-    print(f"«{run.name}»: форма на {run.day:.0f} сут, {run.tri.shape[0]} элементов, ", end="")
+    kind = "3D" if run.dim == 3 else "осесимметрия"
+    print(
+        f"«{run.name}» ({kind}): форма на {run.day:.0f} сут, {run.tri.shape[0]} элементов, ", end=""
+    )
     print(f"{run.n_steps} шагов")
     v_fem = f"{run.volume0:,.0f}".replace(",", " ")
     v_leach = f"{run.leaching_volume:,.0f}".replace(",", " ")
@@ -227,6 +230,8 @@ def _mechanics_from_source(src: Path, args: argparse.Namespace) -> MechanicsRun:
         mc = RunConfig.model_validate(yaml.safe_load(res.config_yaml)).mechanics
     else:
         mc = MechanicsConfig()
+    if args.model:
+        mc = mc.model_copy(update={"model": args.model})
     if args.years is not None:
         if len(mc.stages) != 1:
             raise ValueError("--years только для одной ступени давления; иначе задайте в YAML")
@@ -349,6 +354,9 @@ def main(argv: list[str] | None = None) -> int:
     p_mech.add_argument("--day", type=float, help="момент формы, сут (по умолчанию конец)")
     p_mech.add_argument("--config", help="взять раздел mechanics из этого YAML")
     p_mech.add_argument("--years", type=float, help="длительность (одна ступень давления), лет")
+    p_mech.add_argument(
+        "--model", choices=("axisym", "3d"), help="постановка (по умолчанию из YAML)"
+    )
     p_mech.add_argument("--out", help="сохранить результат .npz")
     p_mech.add_argument("--plot", help="сохранить картинку .png")
     p_mech.add_argument(
