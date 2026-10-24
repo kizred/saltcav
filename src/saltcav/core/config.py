@@ -47,13 +47,19 @@ class LayerKind(StrEnum):
 
 
 class LayerConfig(_Strict):
-    """Прослой; для стохастики задаётся неопределённость положения и мощности."""
+    """Прослой; для стохастики задаётся неопределённость положения и мощности.
+
+    Ангидрит и глина не растворяются: соль над и под ними уходит, прослой остаётся
+    карнизом. Карниз обрушивается, когда его вылет превышает критический:
+    ``critical_span_m`` или, если не задан, ``ledge_span_ratio × мощность``.
+    """
 
     kind: LayerKind
     top_m: Positive
     thickness_m: Positive
     top_sd_m: Annotated[float, Field(ge=0)] = 0.0
     thickness_sd_m: Annotated[float, Field(ge=0)] = 0.0
+    critical_span_m: Positive | None = None
 
 
 class GeologyConfig(_Strict):
@@ -70,6 +76,7 @@ class GeologyConfig(_Strict):
     salt_density_kg_m3: Positive = 2160.0
     k_variation: Annotated[float, Field(ge=0, lt=1)] = 0.0  # амплитуда a
     k_variation_azimuth_deg: float = 0.0  # направление φ₀ быстрого растворения
+    ledge_span_ratio: Positive = 3.0  # критический вылет карниза / мощность прослоя
     layers: list[LayerConfig] = Field(default_factory=list)
 
 
