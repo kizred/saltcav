@@ -14,7 +14,7 @@ if __name__ == "__main__":
         os.chdir(ws)
         # у оконного .exe нет консоли (sys.stdout = None): вывод библиотек и сбои — в журнал
         if sys.stdout is None or sys.stderr is None:
-            log = open(ws / "saltcav-gui.log", "w", encoding="utf-8", buffering=1)  # noqa: SIM115
+            log = open(ws / "saltcav-gui.log", "w", encoding="utf-8", buffering=1)
             sys.stdout = sys.stdout or log
             sys.stderr = sys.stderr or log
             faulthandler.enable(log)
