@@ -1,0 +1,62 @@
+name: Сборка приложения
+
+# Отдельное приложение для Windows: PyInstaller (папка со всеми библиотеками) +
+# установщик Inno Setup. По тегу v* — релиз на GitHub с установщиком.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+  pull_request:
+    paths: ["packaging/**", ".github/workflows/build.yml", "requirements/**"]
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Зависимости (зафиксированные версии)
+        run: |
+          python -m pip install -r requirements/lock-1.0.txt
+          python -m pip install --no-deps -e .
+          python -m pip install "pyinstaller==6.22.3"
+      - name: Сборка PyInstaller
+        run: pyinstaller packaging/saltcav.spec --noconfirm --log-level WARN
+      - name: Самопроверка собранной программы
+        shell: bash
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP"
+          "$GITHUB_WORKSPACE/dist/saltcav/saltcav.exe" selftest --skip 3D-вид 2>&1 | tee selftest.txt
+          echo "::notice title=Самопроверка::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' selftest.txt)"
+      - name: Журнал самопроверки при сбое
+        if: failure()
+        shell: bash
+        run: echo "::error title=Самопроверка::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$RUNNER_TEMP/selftest.txt" 2>/dev/null || echo нет журнала)"
+      - name: Установщик Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $ver = python -c "import saltcav; print(saltcav.__version__)"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DAppVersion=$ver" packaging\saltcav.iss
+          $f = Get-Item packaging\Output\*.exe
+          $mb = [math]::Round($f.Length / 1MB)
+          $dist = [math]::Round(((Get-ChildItem dist\saltcav -Recurse | Measure-Object Length -Sum).Sum) / 1MB)
+          echo "::notice title=Установщик::$($f.Name): $mb МБ (программа после установки — $dist МБ)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saltcav-setup
+          path: packaging/Output/*.exe
+          retention-days: 30
+      - name: Релиз по тегу
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh release create "$GITHUB_REF_NAME" packaging/Output/*.exe --title "saltcav ${GITHUB_REF_NAME#v}" --notes-file CHANGELOG.md
+permissions:
+  contents: write
