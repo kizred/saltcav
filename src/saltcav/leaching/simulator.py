@@ -136,14 +136,19 @@ def _bury(st: _State, grid: CavernGrid, v: FloatArray, c: FloatArray, porosity: 
     st.k_floor = kf_new
 
 
-def simulate(cfg: RunConfig) -> History:
-    """Прогнать весь график режима для одной камеры с параметрами из конфигурации."""
+def simulate(cfg: RunConfig, props: WallProperties | None = None) -> History:
+    """Прогнать весь график режима для одной камеры.
+
+    ``props`` — свойства стенки по узлам (z, φ); по умолчанию строятся из конфигурации.
+    Ансамбль передаёт сюда поля одной реализации.
+    """
     grid = CavernGrid.from_config(cfg.grid)
     schedule = Schedule.from_config(cfg.schedule, grid)
     lp = cfg.leaching
     law = DissolutionLaw(lp.k0_m_per_s, lp.exponent, lp.roof_ratio, lp.floor_ratio)
     c_sat = float(brine.saturation_concentration(lp.temperature_c))
-    props = WallProperties.from_config(cfg.geology, grid)
+    if props is None:
+        props = WallProperties.from_config(cfg.geology, grid)
     solid = props.solid_nodes
     interlayers = interlayers_from_config(cfg.geology, grid)
 
