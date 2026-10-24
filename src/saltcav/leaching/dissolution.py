@@ -89,13 +89,18 @@ def wall_growth_rate(
     c_nodes: FloatArray,
     c_sat: float,
     law: DissolutionLaw,
-    solid_density: float,
+    solid_density: float | FloatArray,
     active: NDArray[np.bool_],
+    k_mult: float | FloatArray = 1.0,
 ) -> tuple[FloatArray, float]:
     """Скорость роста радиуса ∂R/∂t в узлах (nz+1, nphi) и максимум V для КФЛ.
 
     ``active`` (nz+1,) — узлы, где идёт растворение (ниже нерастворителя).
-    ``solid_density`` — ρ_s·(1 − f_ins), кг растворимой соли на м³ породы.
+    ``solid_density`` — ρ_s·(1 − f_ins), кг растворимой соли на м³ породы: число или
+    массив (nz+1, nphi). ``k_mult`` — множитель скорости растворения, число или
+    массив (nz+1, nphi) (неоднородность по глубине и азимуту). Секторы по φ движутся
+    независимо: рассол в слое перемешан по горизонтали, азимутальная связь — только
+    через общую концентрацию слоя.
     """
     r = np.asarray(radius, dtype=float)
     h = np.asarray(dz, dtype=float)[:, None]
@@ -105,8 +110,9 @@ def wall_growth_rate(
     p_plus = np.vstack([d, zero])  # D⁺R = (R_{i+1} − R_i)/Δz, у нижнего узла 0
 
     # скорость отступания вертикальной стенки при местной концентрации, м/с
-    v_base = law.mass_flux(np.asarray(c_nodes, dtype=float), c_sat, np.zeros(len(c_nodes)))
-    v_base = np.where(np.asarray(active), v_base / solid_density, 0.0)[:, None]
+    flux = law.mass_flux(np.asarray(c_nodes, dtype=float), c_sat, np.zeros(len(c_nodes)))
+    v_base = flux[:, None] * np.asarray(k_mult) / np.asarray(solid_density)
+    v_base = np.where(np.asarray(active)[:, None], np.broadcast_to(v_base, r.shape), 0.0)
 
     h_god = godunov_hamiltonian(p_minus, p_plus, law)
     # узел без полости (R = 0) не имеет своей стенки: вычитаем вклад вертикальной

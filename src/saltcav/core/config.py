@@ -57,10 +57,19 @@ class LayerConfig(_Strict):
 
 
 class GeologyConfig(_Strict):
+    """Свойства массива.
+
+    Детерминированная неоднородность по азимуту (этап 3, для проверки 3D):
+    множитель скорости растворения m(φ) = 1 + a·cos(φ − φ₀). Случайные поля по z и φ
+    появятся на этапе 5.
+    """
+
     insoluble_fraction: Fraction = 0.05
     insoluble_fraction_sd: Annotated[float, Field(ge=0)] = 0.0
     bulking_factor: Annotated[float, Field(ge=1)] = 1.5
     salt_density_kg_m3: Positive = 2160.0
+    k_variation: Annotated[float, Field(ge=0, lt=1)] = 0.0  # амплитуда a
+    k_variation_azimuth_deg: float = 0.0  # направление φ₀ быстрого растворения
     layers: list[LayerConfig] = Field(default_factory=list)
 
 
