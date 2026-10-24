@@ -356,6 +356,15 @@ details { margin: 8px 0; } pre { font-size: 12px; background: #fff; padding: 12p
 """
 
 
+def _favicon() -> str:
+    from saltcav.gui.icons import icon_path
+
+    try:
+        return base64.b64encode(icon_path("png256").read_bytes()).decode("ascii")
+    except OSError:  # pragma: no cover
+        return ""
+
+
 def build_html(inp: ReportInputs, title: str = "") -> str:
     """HTML отчёта по готовым результатам."""
     cfg = inp.cfg
@@ -401,9 +410,12 @@ def build_html(inp: ReportInputs, title: str = "") -> str:
     return (
         f'<!doctype html><html lang="ru"><head><meta charset="utf-8">'
         f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{html.escape(head)} — отчёт saltcav</title><style>{CSS}</style></head><body><main>"
+        f"<title>{html.escape(head)} — отчёт saltcav</title>"
+        f'<link rel="icon" href="data:image/png;base64,{_favicon()}">'
+        f"<style>{CSS}</style></head><body><main>"
         f"<h1>{html.escape(head)}</h1>"
-        f'<p class="sub">Отчёт saltcav {html.escape(__version__)} · {now}</p>'
+        f'<p class="sub">Отчёт saltcav {html.escape(__version__)} (автор программы — '
+        f"Sergei Kizre) · {now}</p>"
         + _findings(fnd)
         + "".join(parts)
         + limits

@@ -143,6 +143,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._help: Any = None
         self.surrogate: Any = None
         self.resize(1500, 950)
+        from saltcav.gui.icons import app_icon
+
+        self.setWindowIcon(app_icon())
 
         self.tabs = QtWidgets.QTabWidget()
         self.setCentralWidget(self.tabs)
@@ -1260,12 +1263,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_help(path=path)
 
     def about(self) -> None:
-        QtWidgets.QMessageBox.information(
-            self, "saltcav",
-            f"saltcav {__version__}\nМодель скважинного выщелачивания соляных камер:\n"
-            "выщелачивание, Монте-Карло, геомеханика.\nПараметры — в YAML; подсказки — "
-            "у каждого поля.",
-        )  # fmt: skip
+        box = QtWidgets.QMessageBox(self)
+        box.setWindowTitle("О программе")
+        box.setIconPixmap(self.windowIcon().pixmap(96, 96))
+        box.setText(f"<b>saltcav {__version__}</b>")
+        box.setInformativeText(
+            "Моделирование скважинного выщелачивания соляных камер: рост камеры, "
+            "неопределённость (Монте-Карло), калибровка по данным, геомеханика и "
+            "устойчивость, отчёт.<br><br>Автор: <b>Sergei Kizre</b><br>"
+            "Работает без интернета: всё считается на этом компьютере."
+        )
+        box.exec()
 
     def closeEvent(self, event: Any) -> None:
         if not self._ask_discard():
@@ -1282,7 +1290,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover - запуск окна
     args = sys.argv[1:] if argv is None else argv
+    from saltcav.gui.icons import app_icon, set_windows_app_id
+
+    set_windows_app_id()
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
+    app.setApplicationName("saltcav")
+    app.setOrganizationName("Sergei Kizre")
+    app.setWindowIcon(app_icon())
     win = MainWindow(Path(args[0]) if args else None)
     win.show()
     return int(app.exec())

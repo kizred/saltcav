@@ -28,8 +28,12 @@ python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements/lock-1.0.txt   # проверенные версии зависимостей 1.0
 pip install -e ".[gui,mechanics,surrogate,calibration]"
+saltcav shortcut                   # ярлык со значком на рабочем столе и в меню «Пуск»
 saltcav gui
 ```
+
+Интернет нужен только для установки (скачать пакеты); сама программа работает без
+сети — все расчёты идут на этом компьютере, данные никуда не отправляются.
 
 Для разработки — ещё `pip install -e ".[dev]"` и `pre-commit install`. Руководство
 пользователя — [docs/user-guide.md](docs/user-guide.md) (то же — «Справка» в окне).
