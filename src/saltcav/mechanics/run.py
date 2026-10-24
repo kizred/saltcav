@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -160,12 +161,13 @@ def run_from_shape(
     name: str = "",
     day: float = float("nan"),
     leaching_volume: float = float("nan"),
+    progress: Callable[[float], None] | None = None,
 ) -> MechanicsRun:
     """Полный расчёт по профилю R(z) или R(z, φ)."""
     mesh = build_mesh(mc, depth, radius)
     fem = AxiFEM(mesh)
     setup, pressures = setup_from_config(mc)
-    res = run_mechanics(fem, setup)
+    res = run_mechanics(fem, setup, progress)
     summ = summarize(fem, res, pressures, mc.dilatancy_coeff)
     return MechanicsRun(
         name=name,

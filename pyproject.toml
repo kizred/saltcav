@@ -38,6 +38,9 @@ dev = [
 [project.scripts]
 saltcav = "saltcav.cli:main"
 
+[project.gui-scripts]
+saltcav-gui = "saltcav.gui.app:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/saltcav"]
 
@@ -64,7 +67,7 @@ ignore_missing_imports = true
 
 # Qt-обвязка окна: типы PySide6/pyvistaqt динамические; проверяется тестом окна
 [[tool.mypy.overrides]]
-module = ["saltcav.viz.viewer"]
+module = ["saltcav.viz.viewer", "saltcav.gui.*"]
 ignore_errors = true
 
 [tool.pytest.ini_options]

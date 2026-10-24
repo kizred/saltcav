@@ -296,6 +296,15 @@ def _cmd_ensemble(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_gui(args: argparse.Namespace) -> int:
+    try:
+        from saltcav.gui.app import main as gui_main
+    except ImportError as exc:
+        print(f'для окна нужен PySide6: pip install -e ".[gui]" ({exc})', file=sys.stderr)
+        return 1
+    return gui_main([args.file] if args.file else [])
+
+
 def _realization_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--realization", type=int, help="прогнать реализацию N ансамбля")
     p.add_argument("-n", type=int, help="размер ансамбля (как при saltcav ensemble)")
@@ -313,6 +322,8 @@ def main(argv: list[str] | None = None) -> int:
         default=str(SCHEMA_PATH),
         help=f"куда записать (по умолчанию {SCHEMA_PATH}; - — вывод)",
     )
+    p_gui = sub.add_parser("gui", help="окно: параметры, расчёт, просмотр (нужен .[gui])")
+    p_gui.add_argument("file", nargs="?", help="YAML-конфигурация или результаты .npz")
     p_check = sub.add_parser("check", help="проверить YAML-конфигурацию")
     p_check.add_argument("config", help="путь к YAML")
     p_run = sub.add_parser("run", help="детерминированный прогон одной камеры")
@@ -359,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "version":
         print(__version__)
         return 0
+    if args.command == "gui":
+        return _cmd_gui(args)
     if args.command == "schema":
         return _cmd_schema(args)
     if args.command == "check":
