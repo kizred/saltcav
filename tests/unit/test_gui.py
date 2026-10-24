@@ -248,3 +248,37 @@ def test_calibration_tab(win: Any, tmp_path: Path) -> None:
     win.calib.save(tmp_path / "cal.npz")
     win.open_path(tmp_path / "cal.npz")
     assert win.tabs.currentIndex() == CALIB_TAB
+
+
+def test_console_and_script(win: Any, tmp_path: Path) -> None:
+    """Консоль: выражение печатает значение, ошибки — в консоль, show/apply — в окно."""
+    win.open_path(ROOT / "configs" / "example.yaml")
+    con = win.console()
+    con.inp.setPlainText("sc.get(cfg, 'leaching.k0_m_per_s')")
+    con.run_input()
+    win.wait()
+    app_ = qtw.QApplication.instance()
+    app_.processEvents()
+    assert "3e-05" in con.out.toPlainText()
+    con.inp.setPlainText("1/0")
+    con.run_input()
+    win.wait()
+    app_.processEvents()
+    assert "ZeroDivisionError" in con.out.toPlainText()
+    con.inp.setPlainText(
+        "c = sc.set(cfg, grid__nz=60, name='из консоли')\n"
+        "res = sc.run(c)\nprint('объём', round(res.volume[-1]))\nshow(res)\napply(c)"
+    )
+    con.run_input()
+    win.wait()
+    app_.processEvents()
+    assert "объём" in con.out.toPlainText()
+    assert win.results is not None and win.cfg.grid.nz == 60 and win.cfg.name == "из консоли"
+    assert con.ns["res"].volume[-1] > 0  # переменные остаются между запусками
+    script = tmp_path / "s.py"
+    script.write_text("fig = sc.plot(res)\nprint('рисунок', type(fig).__name__)\nshow(fig)\n",
+                      encoding="utf-8")  # fmt: skip
+    assert win.run_script(script)
+    win.wait()
+    app_.processEvents()
+    assert "рисунок Figure" in con.out.toPlainText()
