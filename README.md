@@ -27,7 +27,8 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
-Дополнительные группы: `.[fast]` (Numba), `.[stochastic]`, `.[io]`, `.[viz]`, `.[mechanics]`.
+Дополнительные группы: `.[fast]` (Numba), `.[stochastic]`, `.[io]`, `.[viz]`, `.[gui]`
+(окно просмотра), `.[mechanics]`.
 FEniCSx (этап 6) ставится через conda-forge:
 
 ```bash
@@ -40,8 +41,12 @@ conda install -c conda-forge fenics-dolfinx mpich
 pytest                       # все быстрые тесты
 saltcav check configs/example.yaml
 saltcav run configs/example.yaml   # прогон одной камеры
-saltcav view configs/example_3d.yaml   # 3D-вид камеры (нужен .[viz])
+saltcav run configs/example_3d.yaml --out hist.npz   # прогон с сохранением шагов
+saltcav view hist.npz                  # окно просмотра по шагам (нужен .[gui])
+saltcav view hist.npz --field rate --animation a.gif   # анимация без окна
+saltcav view hist.npz --paraview pv/series.pvd          # серия для ParaView
 saltcav ensemble configs/example_ensemble.yaml -n 200 --jobs 0 --plot env.png   # ансамбль
+saltcav view configs/example_ensemble.yaml --realization 14 -n 200   # реализация ансамбля
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 

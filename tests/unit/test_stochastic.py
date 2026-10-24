@@ -165,3 +165,14 @@ def test_envelope_plot(ens: EnsembleResult, tmp_path: Path) -> None:
     out = tmp_path / "env.png"
     plot_envelope(ens, out, layers=[(1040.0, 1.0)])
     assert out.stat().st_size > 1000
+
+
+def test_make_realization_matches_ensemble(ens: EnsembleResult) -> None:
+    from saltcav.stochastic.ensemble import make_realization
+
+    real = make_realization(_cfg(), 5, n=8, seed=11)
+    hist = simulate(real.cfg, real.props)
+    np.testing.assert_array_equal(hist.radius[-1], ens.radius[5])
+    np.testing.assert_array_equal(real.params, ens.params[5])
+    with pytest.raises(ValueError):
+        make_realization(_cfg(), 8, n=8, seed=11)
