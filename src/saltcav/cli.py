@@ -544,6 +544,15 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_selftest(args: argparse.Namespace) -> int:
+    """Самопроверка установки на маленьких задачах."""
+    from saltcav.selftest import run_selftest
+
+    print(f"saltcav {__version__}: самопроверка")
+    skip = tuple(s.strip() for s in (args.skip or "").split(",") if s.strip())
+    return 0 if run_selftest(skip) else 1
+
+
 def _cmd_shortcut(args: argparse.Namespace) -> int:
     """Ярлык окна со значком: рабочий стол и меню «Пуск» / приложений."""
     from saltcav.shortcut import create_shortcuts
@@ -633,7 +642,25 @@ def _realization_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--every", type=float, help="сохранять каждые N сут (по умолчанию из YAML)")
 
 
+def _utf8_output() -> None:
+    """Вывод по-русски без сбоев на Windows: в консоль Python пишет Юникодом сам, а в
+    перенаправленный вывод (файл, конвейер) — в кодировке ANSI (cp1251/cp1252), где нет
+    «≈», «χ²», «—». Перенаправленный вывод — в UTF-8, в консоли — замена «?» вместо сбоя."""
+    for stream in (sys.stdout, sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if enc == "utf8" or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            if stream.isatty():
+                stream.reconfigure(errors="replace")
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):  # pragma: no cover
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_output()
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("version", help="версия пакета")
@@ -744,6 +771,8 @@ def main(argv: list[str] | None = None) -> int:
     p_rep.add_argument("--data", help="папка данных скважины (сводка и замечания)")
     p_rep.add_argument("--calibrate", action="store_true", help="откалибровать по --data")
 
+    p_st = sub.add_parser("selftest", help="самопроверка установки (≈ минута)")
+    p_st.add_argument("--skip", help="пропустить пункты через запятую (например, 3D-вид)")
     p_sc = sub.add_parser("shortcut", help="ярлык окна со значком (рабочий стол, меню «Пуск»)")
     p_sc.add_argument("--no-desktop", action="store_true", help="без ярлыка на рабочем столе")
     p_sc.add_argument("--no-menu", action="store_true", help="без ярлыка в меню")
@@ -779,6 +808,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_report(args)
     if args.command == "shortcut":
         return _cmd_shortcut(args)
+    if args.command == "selftest":
+        return _cmd_selftest(args)
     return 2  # pragma: no cover
 
 

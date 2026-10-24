@@ -1297,8 +1297,12 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - запус
     app.setApplicationName("saltcav")
     app.setOrganizationName("Sergei Kizre")
     app.setWindowIcon(app_icon())
-    win = MainWindow(Path(args[0]) if args else None)
+    guide = "--help-guide" in args  # ярлык «Руководство» в меню «Пуск»
+    files = [a for a in args if not a.startswith("--")]
+    win = MainWindow(Path(files[0]) if files else None)
     win.show()
+    if guide:
+        win.show_help()
     return int(app.exec())
 
 

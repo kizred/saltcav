@@ -24,8 +24,9 @@ from saltcav.io.fielddata import (
     concentration_from_density,
 )
 from saltcav.leaching import simulate
+from saltcav.workspace import bundled_root
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = bundled_root()  # корень проекта или папка собранного приложения
 
 
 def operations_from_config(cfg: RunConfig) -> list[dict[str, Any]]:

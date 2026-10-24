@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "saltcav"
-version = "1.0.1"
+version = "1.1.0"
 description = "Стохастическая модель скважинного выщелачивания соляных камер (NaCl)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -71,7 +71,7 @@ files = ["src/saltcav"]
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "numba.*", "gstools.*", "SALib.*", "gmsh.*", "pyvista.*", "matplotlib.*",
-    "PySide6.*", "pyvistaqt.*", "imageio.*", "pypardiso.*", "sklearn.*", "emcee.*",
+    "PySide6.*", "pyvistaqt.*", "imageio.*", "pypardiso.*", "sklearn.*", "emcee.*", "vtkmodules.*",
 ]
 ignore_missing_imports = true
 
