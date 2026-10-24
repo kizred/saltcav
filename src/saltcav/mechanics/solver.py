@@ -117,6 +117,13 @@ def _eq_strain(e: FloatArray) -> FloatArray:
     return np.asarray(np.sqrt(2.0 / 3.0 * np.einsum("...i,...i->...", d, d)))
 
 
+def _apply(d: FloatArray, x: FloatArray) -> FloatArray:
+    """D·x по точкам: ``d`` — (n, n) или (M, q, n, n), ``x`` — (M, q, n)."""
+    if d.ndim == 2:
+        return np.asarray(x @ d.T)
+    return np.asarray(np.matmul(d, x[..., None])[..., 0])
+
+
 def run_mechanics(
     fem: AxiFEM | Any,
     setup: MechanicsSetup,
@@ -158,8 +165,7 @@ def run_mechanics(
         ]
     else:
         flows = []
-    d_inv = np.linalg.inv(d)
-    sub = "ij,eqj->eqi" if d.ndim == 2 else "eqij,eqj->eqi"
+    d_inv = np.asarray(np.linalg.inv(d), dtype=np.float64)
     k_el = fem.stiffness(d)
     sig0 = -setup.lithostatic(fem.yq)[..., None] * mvec
     t_k = setup.temperature_k(fem.yq)
@@ -194,7 +200,7 @@ def run_mechanics(
         du = fem.solve(k_el, f - f_prev)
         f_prev = f
         u += du
-        dsig += np.einsum(sub, d, fem.strain(du))
+        dsig += _apply(d, fem.strain(du))
         if i_stage == 0:
             record(t, 0)
             next_out = setup.output_every_s
@@ -214,11 +220,11 @@ def run_mechanics(
                     tang[sel] += g_l
             d_t = np.asarray(np.linalg.inv(d_inv + step * tang), dtype=np.float64)
             k_t = fem.stiffness(d_t)
-            pre = np.einsum("eqij,eqj->eqi", d_t, step * rate)
+            pre = _apply(d_t, step * rate)
             du = fem.solve(k_t, fem.internal(pre))
             de = fem.strain(du)
-            ds = np.einsum("eqij,eqj->eqi", d_t, de) - pre
-            dec = de - np.einsum(sub, d_inv, ds)
+            ds = _apply(d_t, de) - pre
+            dec = de - _apply(d_inv, ds)
             u += du
             dsig += ds
             eps_c += dec

@@ -6,7 +6,9 @@
 одинаково, кроме объёма полости).
 
 Всё векторизовано по элементам и точкам интегрирования: матрицы B хранятся для
-всех точек, сборка — через ``einsum`` и разреженную матрицу.
+всех точек, произведения — пакетные матричные (BLAS), шаблон разреженной матрицы
+строится один раз. Линейные системы — :class:`~saltcav.mechanics.linsolve.ReusedFactorSolver`
+(одно разложение на много шагов ползучести, решение до невязки 1e-10).
 """
 
 from __future__ import annotations
@@ -16,9 +18,9 @@ from dataclasses import dataclass
 
 import numpy as np
 import scipy.sparse as sp
-import scipy.sparse.linalg as spla
 from numpy.typing import NDArray
 
+from saltcav.mechanics.linsolve import ReusedFactorSolver, csr_pattern
 from saltcav.mesh.axisym import AxiMesh
 
 FloatArray = NDArray[np.float64]
@@ -75,6 +77,7 @@ class AxiFEM:
 
     mesh: AxiMesh
     bbar: bool = True
+    solver: str = "superlu"  # в 2D SuperLU быстрее: у pypardiso накладные расходы на каждое решение
 
     def __post_init__(self) -> None:
         m = self.mesh
@@ -114,9 +117,12 @@ class AxiFEM:
         dofs[:, 1::2] = 2 * m.tri + 1
         self.dofs = dofs
         self.ndof = 2 * m.n_nodes
-        self._rows = np.repeat(dofs, 12, axis=1).ravel()
-        self._cols = np.tile(dofs, (1, 12)).ravel()
+        self._inv, self._indices, self._indptr = csr_pattern(dofs, self.ndof)
+        self._nnz = int(self._indices.size)
+        self.bt = np.ascontiguousarray(b.transpose(0, 1, 3, 2))  # Bᵀ (M, q, 12, 4)
+        self.btw = self.bt * self.wq[:, :, None, None]
         self.fixed = np.zeros(self.ndof, dtype=bool)
+        self.linear = ReusedFactorSolver(self.solver)
 
     # --- граничные условия -----------------------------------------------------
 
@@ -132,23 +138,20 @@ class AxiFEM:
 
     def stiffness(self, d: FloatArray) -> sp.csr_matrix:
         """K = Σ Bᵀ D B·w; ``d`` — (4, 4) или (M, q, 4, 4)."""
-        if d.ndim == 2:
-            db = np.einsum("ij,eqjk->eqik", d, self.b)
-        else:
-            db = np.einsum("eqij,eqjk->eqik", d, self.b)
-        ke = np.einsum("eqji,eqjk,eq->eik", self.b, db, self.wq)
-        k = sp.coo_matrix((ke.ravel(), (self._rows, self._cols)), shape=(self.ndof, self.ndof))
-        return k.tocsr()
+        db = np.matmul(d, self.b)  # (M, q, 4, 12)
+        ke = np.matmul(self.btw, db).sum(axis=1)  # (M, 12, 12)
+        data = np.bincount(self._inv, ke.ravel(), minlength=self._nnz)
+        return sp.csr_matrix((data, self._indices, self._indptr), shape=(self.ndof, self.ndof))
 
     def internal(self, sig: FloatArray) -> FloatArray:
         """∫ Bᵀ σ: вектор узловых сил по напряжениям в точках (M, q, 4)."""
-        fe = np.einsum("eqji,eqj,eq->ei", self.b, sig, self.wq)
+        fe = np.matmul(self.btw, sig[..., None])[..., 0].sum(axis=1)  # (M, 12)
         f = np.bincount(self.dofs.ravel(), fe.ravel(), minlength=self.ndof)
         return np.asarray(f, dtype=np.float64)
 
     def strain(self, u: FloatArray) -> FloatArray:
         """Деформации в точках (M, q, 4) по узловым перемещениям."""
-        return np.asarray(np.einsum("eqij,ej->eqi", self.b, u[self.dofs]))
+        return np.asarray(np.matmul(self.b, u[self.dofs][:, None, :, None])[..., 0])
 
     def pressure_load(
         self, tag: str, q: Callable[[FloatArray, FloatArray], FloatArray]
@@ -185,10 +188,10 @@ class AxiFEM:
 
     def solve(self, k: sp.csr_matrix, f: FloatArray) -> FloatArray:
         """K u = f при нулевых перемещениях в закреплённых степенях свободы."""
-        free = ~self.fixed
+        free = np.flatnonzero(~self.fixed)
         u = np.zeros(self.ndof)
-        kff = k[free][:, free].tocsc()
-        u[free] = spla.splu(kff).solve(f[free])
+        kff = sp.csr_matrix(k[free][:, free])
+        u[free] = self.linear.solve(kff, f[free])
         return u
 
     # --- величины на границе ------------------------------------------------------
