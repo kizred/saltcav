@@ -221,3 +221,30 @@ def test_surrogate_tab(win: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     win.open_path(path)
     assert win.surrogate is not None and win.surrogate.n == 40
     assert win.tabs.currentIndex() == 4
+
+
+def test_calibration_tab(win: Any, tmp_path: Path) -> None:
+    from saltcav.calibration import synthesize, write_truth
+    from saltcav.core.config import dump_config
+    from saltcav.gui.app import CALIB_TAB
+    from saltcav.io.fielddata import write_field_data
+    from tests.verification.test_calibration import small_config
+
+    cfg = small_config(("k0",), n_predictive=2)
+    dump_config(cfg, tmp_path / "c.yaml")
+    write_field_data(tmp_path / "well", synthesize(cfg, {"k0": 2e-5}, sonar_days=[40], seed=2))
+    write_truth(tmp_path / "well", {"k0": 2e-5})
+    win.open_path(tmp_path / "c.yaml")
+    assert win.cfg is not None
+    win.load_data(str(tmp_path / "well"))
+    assert "рассол" in win.data_info.text()
+    win.run_calibration(jobs=1)
+    win.wait()
+    assert win.calib is not None and win.tabs.currentIndex() == CALIB_TAB
+    assert win.calib.estimate()["k0"] == pytest.approx(2e-5, rel=0.05)
+    win.apply_calibration()
+    assert win.cfg.leaching.k0_m_per_s == pytest.approx(win.calib.estimate()["k0"])
+    assert win.dirty
+    win.calib.save(tmp_path / "cal.npz")
+    win.open_path(tmp_path / "cal.npz")
+    assert win.tabs.currentIndex() == CALIB_TAB

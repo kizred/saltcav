@@ -23,6 +23,8 @@ io = ["xarray>=2024.1", "netCDF4>=1.6"]
 viz = ["matplotlib>=3.8", "pyvista>=0.43", "imageio>=2.31", "imageio-ffmpeg>=0.5"]
 # суррогат устойчивости (этап 7)
 surrogate = ["scikit-learn>=1.4"]
+# калибровка по данным: MAP работает без него, MCMC — emcee
+calibration = ["emcee>=3.1"]
 # окно просмотра результатов по шагам (saltcav view)
 gui = ["saltcav[viz]", "PySide6-Essentials>=6.6", "pyvistaqt>=0.11"]  # без WebEngine и Addons
 # геомеханика: сетка Gmsh + собственный осесимметричный МКЭ (NumPy/SciPy)
@@ -68,7 +70,7 @@ files = ["src/saltcav"]
 [[tool.mypy.overrides]]
 module = [
     "scipy.*", "numba.*", "gstools.*", "SALib.*", "gmsh.*", "pyvista.*", "matplotlib.*",
-    "PySide6.*", "pyvistaqt.*", "imageio.*", "pypardiso.*", "sklearn.*",
+    "PySide6.*", "pyvistaqt.*", "imageio.*", "pypardiso.*", "sklearn.*", "emcee.*",
 ]
 ignore_missing_imports = true
 

@@ -385,6 +385,73 @@ class SurrogateConfig(_Strict):
     ] = 2.0
 
 
+CALIB_PARAMETERS = (
+    "k0", "roof_ratio", "floor_ratio", "exponent", "insoluble_fraction", "bulking_factor",
+    "k_variation", "entrainment_coeff",
+)  # fmt: skip
+
+
+class CalibParamConfig(_Strict):
+    """Калибруемый параметр и его априорное распределение.
+
+    lognormal — медиана = значение из конфигурации, ``log_sd`` — σ ln; uniform —
+    равномерно в [low, high]. Пустые поля берутся по умолчанию для параметра.
+    """
+
+    name: str = Field(
+        pattern="^(" + "|".join(CALIB_PARAMETERS) + ")$",
+        description="Параметр: " + ", ".join(CALIB_PARAMETERS),
+    )
+    prior: str | None = Field(
+        default=None, pattern="^(lognormal|uniform)$", description="Априорное: lognormal, uniform"
+    )
+    log_sd: Annotated[
+        float | None, Field(gt=0, description="lognormal: σ ln вокруг значения из конфигурации")
+    ] = None
+    low: float | None = Field(default=None, description="uniform: нижняя граница")
+    high: float | None = Field(default=None, description="uniform: верхняя граница")
+
+    @model_validator(mode="after")
+    def _check_bounds(self) -> CalibParamConfig:
+        if self.low is not None and self.high is not None and self.low >= self.high:
+            raise ValueError(f"{self.name}: нужно low < high")
+        return self
+
+
+class CalibrationConfig(_Strict):
+    """Байесовская калибровка по данным скважины (этап 8, saltcav calibrate).
+
+    Невязки: концентрация рассола на выходе (σ из brine.csv или ``sigma_concentration``)
+    и радиусы сонарных съёмок (``sigma_radius_m``) — в них входит и погрешность модели.
+    """
+
+    parameters: list[CalibParamConfig] = Field(
+        default_factory=lambda: [
+            CalibParamConfig(name="k0"),
+            CalibParamConfig(name="roof_ratio"),
+            CalibParamConfig(name="insoluble_fraction"),
+        ],
+        description="Что подбирать (по умолчанию k0, roof_ratio, insoluble_fraction)",
+    )
+    sigma_concentration_kg_m3: Annotated[
+        float, Field(gt=0, description="Погрешность концентрации рассола, кг/м³")
+    ] = 5.0
+    sigma_radius_m: Annotated[
+        float, Field(gt=0, description="Погрешность радиуса по сонару (вместе с моделью), м")
+    ] = 0.5
+    method: str = Field(
+        default="map",
+        pattern="^(map|mcmc)$",
+        description="map — максимум апостериорной + лапласово приближение; mcmc — emcee",
+    )
+    walkers: Annotated[int, Field(ge=4, description="MCMC: число цепочек (≥ 2 × параметров)")] = 16
+    steps: Annotated[int, Field(ge=10, description="MCMC: шагов каждой цепочки")] = 200
+    burn: Annotated[int, Field(ge=0, description="MCMC: отбросить первых шагов")] = 50
+    n_predictive: Annotated[
+        int, Field(ge=0, description="Прогонов по апостериорному для полосы прогноза")
+    ] = 24
+
+
 class RunConfig(_Strict):
     """Конфигурация расчёта saltcav (YAML)."""
 
@@ -397,6 +464,7 @@ class RunConfig(_Strict):
     ensemble: EnsembleConfig = EnsembleConfig()
     mechanics: MechanicsConfig = MechanicsConfig()
     surrogate: SurrogateConfig = SurrogateConfig()
+    calibration: CalibrationConfig = CalibrationConfig()
 
     @model_validator(mode="after")
     def _check_depths_inside_grid(self) -> RunConfig:
@@ -408,6 +476,9 @@ class RunConfig(_Strict):
                     raise ValueError(f"ступень {i}: {name}={z} вне сетки [{lo}, {hi}]")
             if st.blanket_depth_m >= max(st.injection_depth_m, st.production_depth_m):
                 raise ValueError(f"ступень {i}: нерастворитель должен быть выше башмаков колонн")
+        names = [p.name for p in self.calibration.parameters]
+        if len(set(names)) != len(names):
+            raise ValueError("calibration.parameters: параметр указан дважды")
         return self
 
 

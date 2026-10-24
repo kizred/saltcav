@@ -58,6 +58,9 @@ saltcav mechanics configs/example_mechanics.yaml --out mech.npz --plot mech.png 
 saltcav mechanics hist.npz --years 30 --plot mech.png   # по сохранённой форме
 saltcav mechanics h3d.npz --model 3d --plot mech3d.png   # полная 3D-форма (минуты)
 saltcav surrogate configs/example_ensemble.yaml -n 200 --plot stab.png   # P(потери устойчивости)
+saltcav data data/demo/well-1                                       # проверить данные скважины
+saltcav calibrate configs/demo_calibration.yaml --data data/demo/well-1 --plot calib.png \
+        --write-config calibrated.yaml                              # калибровка → ансамбль
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 
@@ -91,7 +94,7 @@ PyCharm и VS Code (с расширением YAML) тогда дописыва�
 | `configs/` | YAML-конфигурации | — |
 | `schema/` | JSON Schema конфигурации для редактора (`saltcav schema`) | — |
 | `benchmarks/sansmic` | сверка с SANSMIC: сценарий, эталон, сравнение | 2.4 |
-| `data/` | данные компании (вне git) | 8 |
+| `data/` | данные компании (вне git); `demo/` — синтетика, `open/` — SANSMIC ([формат](docs/data-format.md)) | 8 |
 | `docs/` | паспорт, план ПО, прогресс, журнал решений | — |
 
 ## Правила

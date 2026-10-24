@@ -2,6 +2,142 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/kizred/saltcav/schema/saltcav-config.schema.json",
   "$defs": {
+    "CalibParamConfig": {
+      "additionalProperties": false,
+      "description": "Калибруемый параметр и его априорное распределение.\n\nlognormal — медиана = значение из конфигурации, ``log_sd`` — σ ln; uniform —\nравномерно в [low, high]. Пустые поля берутся по умолчанию для параметра.",
+      "properties": {
+        "name": {
+          "description": "Параметр: k0, roof_ratio, floor_ratio, exponent, insoluble_fraction, bulking_factor, k_variation, entrainment_coeff",
+          "pattern": "^(k0|roof_ratio|floor_ratio|exponent|insoluble_fraction|bulking_factor|k_variation|entrainment_coeff)$",
+          "title": "Name",
+          "type": "string"
+        },
+        "prior": {
+          "anyOf": [
+            {
+              "pattern": "^(lognormal|uniform)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Априорное: lognormal, uniform",
+          "title": "Prior"
+        },
+        "log_sd": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "lognormal: σ ln вокруг значения из конфигурации",
+          "title": "Log Sd"
+        },
+        "low": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "uniform: нижняя граница",
+          "title": "Low"
+        },
+        "high": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "uniform: верхняя граница",
+          "title": "High"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "CalibParamConfig",
+      "type": "object"
+    },
+    "CalibrationConfig": {
+      "additionalProperties": false,
+      "description": "Байесовская калибровка по данным скважины (этап 8, saltcav calibrate).\n\nНевязки: концентрация рассола на выходе (σ из brine.csv или ``sigma_concentration``)\nи радиусы сонарных съёмок (``sigma_radius_m``) — в них входит и погрешность модели.",
+      "properties": {
+        "parameters": {
+          "description": "Что подбирать (по умолчанию k0, roof_ratio, insoluble_fraction)",
+          "items": {
+            "$ref": "#/$defs/CalibParamConfig"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "sigma_concentration_kg_m3": {
+          "default": 5.0,
+          "description": "Погрешность концентрации рассола, кг/м³",
+          "exclusiveMinimum": 0,
+          "title": "Sigma Concentration Kg M3",
+          "type": "number"
+        },
+        "sigma_radius_m": {
+          "default": 0.5,
+          "description": "Погрешность радиуса по сонару (вместе с моделью), м",
+          "exclusiveMinimum": 0,
+          "title": "Sigma Radius M",
+          "type": "number"
+        },
+        "method": {
+          "default": "map",
+          "description": "map — максимум апостериорной + лапласово приближение; mcmc — emcee",
+          "pattern": "^(map|mcmc)$",
+          "title": "Method",
+          "type": "string"
+        },
+        "walkers": {
+          "default": 16,
+          "description": "MCMC: число цепочек (≥ 2 × параметров)",
+          "minimum": 4,
+          "title": "Walkers",
+          "type": "integer"
+        },
+        "steps": {
+          "default": 200,
+          "description": "MCMC: шагов каждой цепочки",
+          "minimum": 10,
+          "title": "Steps",
+          "type": "integer"
+        },
+        "burn": {
+          "default": 50,
+          "description": "MCMC: отбросить первых шагов",
+          "minimum": 0,
+          "title": "Burn",
+          "type": "integer"
+        },
+        "n_predictive": {
+          "default": 24,
+          "description": "Прогонов по апостериорному для полосы прогноза",
+          "minimum": 0,
+          "title": "N Predictive",
+          "type": "integer"
+        }
+      },
+      "title": "CalibrationConfig",
+      "type": "object"
+    },
     "CreepBranchConfig": {
       "additionalProperties": false,
       "description": "Ветвь установившейся ползучести: ε̇ = A·exp(−Q/RT)·(σ/1 МПа)^n.",
@@ -939,6 +1075,41 @@
         "n_3d": 0,
         "fos_threshold": 1.0,
         "u_stop": 2.0
+      }
+    },
+    "calibration": {
+      "$ref": "#/$defs/CalibrationConfig",
+      "default": {
+        "parameters": [
+          {
+            "high": null,
+            "log_sd": null,
+            "low": null,
+            "name": "k0",
+            "prior": null
+          },
+          {
+            "high": null,
+            "log_sd": null,
+            "low": null,
+            "name": "roof_ratio",
+            "prior": null
+          },
+          {
+            "high": null,
+            "log_sd": null,
+            "low": null,
+            "name": "insoluble_fraction",
+            "prior": null
+          }
+        ],
+        "sigma_concentration_kg_m3": 5.0,
+        "sigma_radius_m": 0.5,
+        "method": "map",
+        "walkers": 16,
+        "steps": 200,
+        "burn": 50,
+        "n_predictive": 24
       }
     }
   },
