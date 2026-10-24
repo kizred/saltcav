@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -380,6 +382,11 @@ def _factorize_spd(
     ``holder`` хранит один экземпляр PARDISO на задачу: при новом разложении память
     прежнего освобождается, а не копится."""
     if solver in ("auto", "pardiso"):
+        if sys.platform.startswith("linux"):
+            # Gmsh на Linux собран с GNU OpenMP (libgomp), MKL по умолчанию — с Intel
+            # OpenMP (libiomp5); две среды OpenMP в одном процессе падают. Переводим MKL
+            # на libgomp — до первой загрузки MKL.
+            os.environ.setdefault("MKL_THREADING_LAYER", "GNU")
         try:
             import pypardiso
         except ImportError:
