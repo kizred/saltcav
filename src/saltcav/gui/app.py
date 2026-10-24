@@ -45,7 +45,9 @@ SECTIONS: tuple[tuple[str, str], ...] = (
     ("ensemble", "Ансамбль"),
     ("mechanics", "Геомеханика"),
     ("surrogate", "Устойчивость"),
+    ("calibration", "Калибровка"),
 )
+CALIB_TAB = 5
 SCHEMA_REL = Path("schema") / "saltcav-config.schema.json"
 
 TEMPLATE: dict[str, Any] = {
@@ -148,6 +150,9 @@ class MainWindow(QtWidgets.QMainWindow):
             "Устойчивость по ансамблю не считалась — вкладка «Ансамбль» → «Устойчивость»."
         )
         self.tabs.addTab(self.sur_tab, "Устойчивость")
+        self.calib: Any = None
+        self.calib_data: Any = None
+        self.tabs.addTab(self._calib_page(None), "Калибровка")
         self._build_actions()
 
         self.progress = QtWidgets.QProgressBar()
@@ -251,6 +256,7 @@ class MainWindow(QtWidgets.QMainWindow):
         act("Сохранить геомеханику (.npz)…", self.save_mech, menu=mf)
         act("Картинка геомеханики (.png)…", self.save_mech_png, menu=mf)
         act("Сохранить устойчивость (.npz)…", self.save_surrogate, menu=mf)
+        act("Сохранить калибровку (.npz)…", self.save_calibration, menu=mf)
         mf.addSeparator()
         act("Выход", self.close, "Ctrl+Q", menu=mf)
         tb.addSeparator()
@@ -261,7 +267,9 @@ class MainWindow(QtWidgets.QMainWindow):
                            sp.SP_FileDialogDetailedView, mr)  # fmt: skip
         self.mech_act = act("Геомеханика", lambda: self.run_mechanics(), "F7",
                             sp.SP_DriveHDIcon, mr)  # fmt: skip
-        for a in (self.run_act, self.ens_act, self.mech_act):
+        self.cal_act = act("Калибровка", lambda: self.tabs.setCurrentIndex(CALIB_TAB), "F8",
+                           sp.SP_FileDialogContentsView, mr)  # fmt: skip
+        for a in (self.run_act, self.ens_act, self.mech_act, self.cal_act):
             tb.addAction(a)
         mh = self.menuBar().addMenu("Справка")
         act("Справка по полю", lambda: self.help_for_focus(), "F1", menu=mh)
@@ -424,6 +432,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self._show_surrogate(StudyResult.load(path))
             self.tabs.setCurrentIndex(4)
+            return
+        if kind == "saltcav-calibration":
+            from saltcav.calibration import CalibResult
+
+            self._show_calibration(CalibResult.load(path))
+            self.tabs.setCurrentIndex(CALIB_TAB)
             return
         if kind == "saltcav-mechanics":
             from saltcav.mechanics.run import MechanicsRun
@@ -839,6 +853,175 @@ class MainWindow(QtWidgets.QMainWindow):
         p = self._save_dialog("Устойчивость", "saltcav (*.npz)", "stability.npz")
         if p:
             self.surrogate.save(p)
+
+    # --- калибровка -----------------------------------------------------------------
+
+    def _calib_page(self, res: Any) -> QtWidgets.QWidget:
+        """Вкладка калибровки: выбор данных и запуск; после расчёта — картинка и таблица."""
+        page = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout(page)
+        bar = QtWidgets.QHBoxLayout()
+        self.data_ed = QtWidgets.QLineEdit(str(self.calib_data or ""))
+        self.data_ed.setPlaceholderText(
+            "папка данных скважины: operations.csv, brine.csv, sonar.csv …"
+        )
+        self.data_ed.editingFinished.connect(lambda: self.load_data(self.data_ed.text()))
+        pick = QtWidgets.QPushButton("Данные…")
+        pick.clicked.connect(self.choose_data)
+        self.method_cb = QtWidgets.QComboBox()
+        self.method_cb.addItem("MAP + лаплас (быстро)", "map")
+        self.method_cb.addItem("MCMC (точнее, долго)", "mcmc")
+        self.holdout_sb = QtWidgets.QDoubleSpinBox()
+        self.holdout_sb.setRange(0, 1e5)
+        self.holdout_sb.setDecimals(0)
+        self.holdout_sb.setSpecialValueText("все замеры")
+        self.holdout_sb.setPrefix("подгонка до ")
+        self.holdout_sb.setSuffix(" сут")
+        self.holdout_sb.setToolTip("Замеры позже — проверка прогноза; 0 — подгонять по всем")
+        go = QtWidgets.QPushButton("Калибровать")
+        go.clicked.connect(self.run_calibration)
+        for wdg in (self.data_ed, pick, self.method_cb, self.holdout_sb, go):
+            bar.addWidget(wdg, 1 if wdg is self.data_ed else 0)
+        lay.addLayout(bar)
+        self.data_info = QtWidgets.QLabel(
+            "Подбор параметров растворения по данным скважины (раздел «Калибровка» — что "
+            "подбирать и априорные). Демо: data/demo/well-1 с configs/demo_calibration.yaml; "
+            "открытый эталон: data/open/sansmic-direct."
+        )
+        self.data_info.setWordWrap(True)
+        self.data_info.setStyleSheet("color: #52514e;")
+        lay.addWidget(self.data_info)
+        if res is None:
+            lay.addStretch(1)
+            return page
+
+        from saltcav.viz.calibration_plot import SURFACE, draw_calibration
+
+        split = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        fig = Figure(figsize=(11, 8), facecolor=SURFACE)
+        draw_calibration(fig, res)
+        split.addWidget(FigureCanvasQTAgg(fig))
+        side = QtWidgets.QWidget()
+        sl = QtWidgets.QVBoxLayout(side)
+        head = res.table_header()
+        rows = res.table()
+        table = QtWidgets.QTableWidget(len(rows), len(head))
+        table.setHorizontalHeaderLabels(head)
+        for r, row in enumerate(rows):
+            for c, v in enumerate(row):
+                table.setItem(r, c, QtWidgets.QTableWidgetItem(v))
+        table.resizeColumnsToContents()
+        sl.addWidget(table)
+        lines = [f"χ²/N = {res.chi2_reduced:.2f} по {res.n_fit} замерам, {res.n_runs} прогонов"]
+        unit = {"brine": "рассол, кг/м³", "sonar": "сонар, м"}
+        lines += [f"СКО ({unit[k]}): {v:.2f}" for k, v in res.rms_fit.items()]
+        if res.rms_holdout:
+            lines.append(f"<b>Проверка после {res.holdout_day:g} сут</b>")
+            lines += [f"СКО ({unit[k]}): {v:.2f}" for k, v in res.rms_holdout.items()]
+        lines += [f"<span style='color:#a86b00'>⚠ {n}</span>" for n in res.notes()]
+        info = QtWidgets.QLabel("<br>".join(lines))
+        info.setWordWrap(True)
+        sl.addWidget(info)
+        sl.addStretch(1)
+        apply = QtWidgets.QPushButton("Применить к параметрам")
+        apply.setToolTip(
+            "Оценки — в разделы «Выщелачивание» и «Геология», их разброс (k0, кровля/стенка) — "
+            "в «Неопределённость», режим и прослои — из данных. Дальше — «Ансамбль»."
+        )
+        apply.setEnabled(self.cfg is not None)
+        apply.clicked.connect(self.apply_calibration)
+        sl.addWidget(apply)
+        split.addWidget(side)
+        split.setSizes([1050, 450])
+        lay.addWidget(split, 1)
+        return page
+
+    def choose_data(self) -> None:
+        d = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Данные скважины", str(self.calib_data or "")
+        )
+        if d:
+            self.load_data(d)
+
+    def load_data(self, folder: str) -> Any:
+        """Прочитать папку данных и показать сводку и замечания."""
+        from saltcav.io.fielddata import load_field_data
+
+        if not folder:
+            return None
+        self.data_ed.setText(folder)
+        try:
+            data = load_field_data(folder)
+        except (OSError, ValueError) as exc:
+            self.data_info.setText(f"<span style='color:#c0392b'>{exc}</span>")
+            return None
+        self.calib_data = Path(folder)
+        parts = [f"<b>{data.name}</b>"]
+        if data.operations:
+            parts.append(f"режим {len(data.operations)} ступ., {data.duration_days:g} сут")
+        if data.brine_day.size:
+            parts.append(f"рассол {data.brine_day.size} замеров")
+        if data.sonar:
+            parts.append("сонар " + ", ".join(f"{s.day:g}" for s in data.sonar) + " сут")
+        issues = data.issues(self.cfg)
+        text = " · ".join(parts)
+        if issues:
+            text += "<br>" + "<br>".join(
+                f"<span style='color:#a86b00'>⚠ {m}</span>" for m in issues
+            )
+        self.data_info.setText(text)
+        return data
+
+    def run_calibration(self, jobs: int | None = None) -> None:
+        cfg = self.validate()
+        data = self.load_data(self.data_ed.text())
+        if cfg is None or data is None:
+            return
+        method = self.method_cb.currentData()
+        hold = self.holdout_sb.value() or None
+        jobs = jobs or os.cpu_count() or 1
+        folder = self.calib_data
+
+        def job(report: Callable[[float, str], None]) -> Any:
+            from saltcav.calibration import calibrate, read_truth
+
+            return calibrate(cfg, data, method=method, holdout_day=hold, jobs=jobs, progress=report,
+                             truth=read_truth(folder))  # fmt: skip
+
+        def done(res: Any) -> None:
+            self.calib_fielddata = data
+            self._show_calibration(res)
+
+        self._start("Калибровка", job, done)
+
+    def _show_calibration(self, res: Any) -> None:
+        self.calib = res
+        method = self.method_cb.currentIndex()
+        hold = self.holdout_sb.value()
+        self._replace_tab(CALIB_TAB, self._calib_page(res), "Калибровка")
+        self.method_cb.setCurrentIndex(method)
+        self.holdout_sb.setValue(hold)
+        self.tabs.setCurrentIndex(CALIB_TAB)
+
+    def apply_calibration(self) -> None:
+        cfg = self.validate()
+        if cfg is None or self.calib is None:
+            return
+        new = self.calib.calibrated_config(cfg, getattr(self, "calib_fielddata", None))
+        self.load_dict(new.model_dump(mode="json", exclude_defaults=False))
+        self.dirty = True
+        self._update_title()
+        self.tabs.setCurrentIndex(0)
+        self.statusBar().showMessage(
+            "параметры обновлены по калибровке — дальше «Ансамбль» (F6)", 10000
+        )
+
+    def save_calibration(self) -> None:
+        if self.calib is None:
+            return
+        p = self._save_dialog("Калибровка", "saltcav (*.npz)", "calibration.npz")
+        if p:
+            self.calib.save(p)
 
     def open_realization(self, index: int | None, mech: bool) -> None:
         if index is None or self.ensemble is None or self.ens_cfg is None:

@@ -1,0 +1,4 @@
+name: SANSMIC, прямоток 100 сут
+notes: 'открытый эталон: расчёт SANSMIC (Sandia National Laboratories, github.com/sandialabs/sansmic),
+  сценарий configs/benchmark_sansmic_direct.yaml; benchmarks/sansmic/run_reference.py'
+temperature_c: 25.0

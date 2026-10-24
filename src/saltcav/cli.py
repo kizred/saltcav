@@ -1,7 +1,7 @@
 """Командная строка: ``saltcav <команда>``.
 
-Сейчас доступны ``version``, ``schema``, ``check``, ``run``, ``view``, ``ensemble`` и
-``mechanics``; команды ``calibrate``, ``report`` появятся на своих этапах.
+Команды: ``version``, ``schema``, ``gui``, ``check``, ``run``, ``view``, ``ensemble``,
+``mechanics``, ``surrogate``, ``data``, ``synth``, ``calibrate``; ``report`` — этап 9.
 """
 
 from __future__ import annotations
@@ -327,6 +327,166 @@ def _cmd_surrogate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_cfg(path: str) -> RunConfig | None:
+    try:
+        return load_config(path)
+    except (OSError, ValidationError, ValueError) as exc:
+        print(f"Ошибка в {path}:\n{exc}", file=sys.stderr)
+        return None
+
+
+def _cmd_data(args: argparse.Namespace) -> int:
+    """Прочитать и проверить набор данных скважины."""
+    from saltcav.io.fielddata import load_field_data
+
+    try:
+        data = load_field_data(args.folder)
+    except (OSError, ValueError) as exc:
+        print(f"Ошибка: {exc}", file=sys.stderr)
+        return 1
+    cfg = _load_cfg(args.config) if args.config else None
+    if args.config and cfg is None:
+        return 1
+    print(f"«{data.name}»" + (f", {data.temperature_c:g} °C" if data.temperature_c else ""))
+    if data.operations:
+        print(f"  режим: {len(data.operations)} ступ., {data.duration_days:g} сут")
+    if data.brine_day.size:
+        b, c = data.brine_day, data.brine_conc
+        print(f"  рассол: {b.size} замеров, {b[0]:g}–{b[-1]:g} сут, "
+              f"{float(np.min(c)):.0f}–{float(np.max(c)):.0f} кг/м³")  # fmt: skip
+    for s in data.sonar:
+        az = "" if s.azimuth_deg is None else f", {np.unique(s.azimuth_deg).size} азимутов"
+        z0, z1 = float(np.min(s.depth)), float(np.max(s.depth))
+        print(f"  сонар {s.day:g} сут: {s.depth.size} точек, {z0:g}–{z1:g} м{az}")
+    if data.layers:
+        print(f"  прослоев: {len(data.layers)}")
+    if data.notes:
+        print(f"  примечание: {data.notes}")
+    issues = data.issues(cfg)
+    for msg in issues:
+        print(f"  внимание: {msg}")
+    if cfg is not None:
+        try:
+            data.apply(cfg)
+        except (ValidationError, ValueError) as exc:
+            print(f"  режим из данных не согласуется с {args.config}:\n{exc}", file=sys.stderr)
+            return 1
+    print("OK" if not issues else f"замечаний: {len(issues)}")
+    return 0
+
+
+def _parse_truth(items: list[str]) -> dict[str, float]:
+    out = {}
+    for it in items:
+        k, _, v = it.partition("=")
+        if not v:
+            raise ValueError(f"--truth {it}: нужно имя=значение")
+        out[k.strip()] = float(v)
+    return out
+
+
+def _cmd_synth(args: argparse.Namespace) -> int:
+    """Синтетический набор «как от компании» или открытый эталон SANSMIC."""
+    from saltcav.calibration import sansmic_dataset, synthesize, write_truth
+    from saltcav.io.fielddata import write_field_data
+
+    if args.sansmic:
+        data = sansmic_dataset()
+        write_field_data(args.out, data)
+        print(f"открытый набор SANSMIC: {args.out}")
+        return 0
+    if not args.config:
+        print("нужна конфигурация (или --sansmic)", file=sys.stderr)
+        return 1
+    cfg = _load_cfg(args.config)
+    if cfg is None:
+        return 1
+    try:
+        truth = _parse_truth(args.truth or [])
+        days = [float(v) for v in args.sonar_days.split(",")] if args.sonar_days else None
+        data = synthesize(cfg, truth, brine_every_days=args.brine_every, sonar_days=days,
+                          sigma_c=args.sigma_c, sigma_r=args.sigma_r, seed=args.seed,
+                          name=args.name or f"синтетика «{cfg.name}»")  # fmt: skip
+    except ValueError as exc:
+        print(f"Ошибка: {exc}", file=sys.stderr)
+        return 1
+    write_field_data(args.out, data, excel=args.excel)
+    write_truth(args.out, truth)
+    print(f"синтетический набор: {args.out} (истина — truth.yaml: "
+          + ", ".join(f"{k}={v:g}" for k, v in truth.items()) + ")")  # fmt: skip
+    return 0
+
+
+def _cmd_calibrate(args: argparse.Namespace) -> int:
+    """Байесовская калибровка параметров по данным скважины."""
+    from saltcav.calibration import calibrate, read_truth
+    from saltcav.core.config import dump_config
+    from saltcav.io.fielddata import load_field_data
+
+    cfg = _load_cfg(args.config)
+    if cfg is None:
+        return 1
+    try:
+        data = load_field_data(args.data)
+        for msg in data.issues(cfg):
+            print(f"  внимание: {msg}")
+        if args.steps:
+            cfg = cfg.model_copy(
+                update={"calibration": cfg.calibration.model_copy(update={"steps": args.steps})}
+            )
+        t0 = time.perf_counter()
+
+        def progress(frac: float, text: str) -> None:
+            el = time.perf_counter() - t0
+            print(f"\r  {text} ({el:.0f} с)" + " " * 10, end="", flush=True)
+
+        res = calibrate(cfg, data, method=args.method, holdout_day=args.holdout_days,
+                        jobs=args.jobs, progress=progress, truth=read_truth(args.data))  # fmt: skip
+    except (OSError, ValueError, ValidationError) as exc:
+        print(f"\nОшибка: {exc}", file=sys.stderr)
+        return 1
+    m = {"map": "MAP + лаплас", "mcmc": "MCMC"}[res.method]
+    print(f"\rкалибровка ({m}): {res.n_runs} прогонов, {res.seconds:.0f} с" + " " * 30)
+    head = res.table_header()
+    rows = res.table()
+    w = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(head)]
+    print("  " + "  ".join(h.ljust(w[i]) for i, h in enumerate(head)))
+    for r in rows:
+        print("  " + "  ".join(c.ljust(w[i]) for i, c in enumerate(r)))
+    acc = f"; доля приёма MCMC {res.acceptance:.2f}" if res.method == "mcmc" else ""
+    print(f"  χ²/N = {res.chi2_reduced:.2f} по {res.n_fit} замерам{acc}")
+    unit = {"brine": ("рассол", "кг/м³"), "sonar": ("сонар", "м")}
+
+    def rms(d: dict[str, float]) -> str:
+        return ", ".join(f"{unit[k][0]} {v:.2f} {unit[k][1]}" for k, v in d.items())
+
+    print(f"  СКО невязок: {rms(res.rms_fit)}")
+    if res.rms_holdout:
+        ho = rms(res.rms_holdout)
+        cov = (
+            ""
+            if np.isnan(res.coverage_holdout)
+            else f"; в 90 %-полосе {100 * res.coverage_holdout:.0f} %"
+        )
+        print(f"  проверка после {res.holdout_day:g} сут: СКО {ho}{cov}")
+    for note in res.notes():
+        print(f"  внимание: {note}")
+    if args.out:
+        res.save(args.out)
+        print(f"  результат: {args.out}")
+    if args.plot:
+        from saltcav.viz.calibration_plot import plot_calibration
+
+        plot_calibration(res, args.plot, f"«{data.name}»")
+        print(f"  картинка: {args.plot}")
+    if args.write_config:
+        new = res.calibrated_config(cfg, data)
+        new = new.model_copy(update={"name": f"{cfg.name}-calibrated"})
+        dump_config(new, args.write_config)
+        print(f"  откалиброванная конфигурация: {args.write_config}")
+    return 0
+
+
 def _cmd_ensemble(args: argparse.Namespace) -> int:
     from saltcav.stochastic.ensemble import run_ensemble
 
@@ -470,6 +630,33 @@ def main(argv: list[str] | None = None) -> int:
     p_view.add_argument("--fps", type=int, default=8, help="кадров в секунду анимации")
     p_view.add_argument("--paraview", help="серия шагов для ParaView (.pvd, без окна)")
     _realization_args(p_view)
+    p_data = sub.add_parser("data", help="проверить набор данных скважины (папка CSV)")
+    p_data.add_argument("folder", help="папка: operations.csv, brine.csv, sonar.csv, layers.csv")
+    p_data.add_argument("--config", help="сверить с конфигурацией (сетка, режим)")
+    p_syn = sub.add_parser("synth", help="синтетический набор данных или открытый SANSMIC")
+    p_syn.add_argument("config", nargs="?", help="YAML: камера и режим синтетики")
+    p_syn.add_argument("--out", required=True, help="папка набора")
+    p_syn.add_argument("--truth", action="append", metavar="ИМЯ=ЗНАЧЕНИЕ",
+                       help="скрытый истинный параметр: k0, roof_ratio, …")  # fmt: skip
+    p_syn.add_argument("--brine-every", type=float, default=5.0, help="замер рассола каждые N сут")
+    p_syn.add_argument("--sonar-days", help="дни сонарных съёмок через запятую")
+    p_syn.add_argument("--sigma-c", type=float, default=3.0, help="шум концентрации, кг/м³")
+    p_syn.add_argument("--sigma-r", type=float, default=0.3, help="шум радиуса, м")
+    p_syn.add_argument("--seed", type=int, default=0, help="seed шума")
+    p_syn.add_argument("--name", help="название скважины")
+    p_syn.add_argument("--sansmic", action="store_true", help="открытый набор из расчёта SANSMIC")
+    p_syn.add_argument("--excel", action="store_true", help="CSV как из Excel: «;» и запятая")
+    p_cal = sub.add_parser("calibrate", help="подобрать параметры по данным скважины")
+    p_cal.add_argument("config", help="YAML: априорные значения и раздел calibration")
+    p_cal.add_argument("--data", required=True, help="папка данных скважины")
+    p_cal.add_argument("--method", choices=("map", "mcmc"), help="по умолчанию из YAML")
+    p_cal.add_argument("--steps", type=int, help="MCMC: шагов цепочки (calibration.steps)")
+    p_cal.add_argument("--holdout-days", type=float,
+                       help="подгонка по замерам до N сут, позже — проверка")  # fmt: skip
+    p_cal.add_argument("--jobs", type=int, default=0, help="процессов (0 — все ядра)")
+    p_cal.add_argument("--out", help="сохранить результат .npz")
+    p_cal.add_argument("--plot", help="сохранить картинку .png")
+    p_cal.add_argument("--write-config", help="записать откалиброванный YAML (для ансамбля)")
 
     args = parser.parse_args(argv)
     if args.command == "version":
@@ -491,6 +678,12 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_mechanics(args)
     if args.command == "ensemble":
         return _cmd_ensemble(args)
+    if args.command == "data":
+        return _cmd_data(args)
+    if args.command == "synth":
+        return _cmd_synth(args)
+    if args.command == "calibrate":
+        return _cmd_calibrate(args)
     return 2  # pragma: no cover
 
 

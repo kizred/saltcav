@@ -1,0 +1,2 @@
+day_start,day_end,mode,rate_m3_per_h,injection_depth_m,production_depth_m,blanket_depth_m
+0,100,direct,50,1090,1020,1010

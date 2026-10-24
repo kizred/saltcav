@@ -1,6 +1,8 @@
 # Данные компании и результаты расчётов — НЕ в git (версии через DVC)
 data/*
 !data/.gitkeep
+!data/demo/
+!data/open/
 results/
 *.nc
 *.zarr/
