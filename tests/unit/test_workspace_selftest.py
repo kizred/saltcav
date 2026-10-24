@@ -28,3 +28,17 @@ def test_selftest_quick(capsys: pytest.CaptureFixture[str]) -> None:
     out = capsys.readouterr().out
     assert ok, out
     assert "выщелачивание    OK" in out and "калибровка       OK" in out
+
+
+def test_cli_output_in_ansi_pipe(tmp_path: Path) -> None:
+    """Вывод в конвейер с кодировкой ANSI (как на Windows) — без UnicodeEncodeError."""
+    import subprocess
+    import sys
+
+    out = subprocess.run(
+        [sys.executable, "-c", "from saltcav.cli import main; main(['version']); "
+         "print('χ² ≈ 1 — проверка')"],
+        capture_output=True, env={**__import__("os").environ, "PYTHONIOENCODING": "cp1252"},
+        check=True,
+    )  # fmt: skip
+    assert "χ² ≈ 1 — проверка" in out.stdout.decode("utf-8")

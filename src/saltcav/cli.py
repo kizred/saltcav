@@ -642,7 +642,25 @@ def _realization_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--every", type=float, help="сохранять каждые N сут (по умолчанию из YAML)")
 
 
+def _utf8_output() -> None:
+    """Вывод по-русски без сбоев на Windows: в консоль Python пишет Юникодом сам, а в
+    перенаправленный вывод (файл, конвейер) — в кодировке ANSI (cp1251/cp1252), где нет
+    «≈», «χ²», «—». Перенаправленный вывод — в UTF-8, в консоли — замена «?» вместо сбоя."""
+    for stream in (sys.stdout, sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if enc == "utf8" or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            if stream.isatty():
+                stream.reconfigure(errors="replace")
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):  # pragma: no cover
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_output()
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("version", help="версия пакета")
