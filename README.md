@@ -64,6 +64,26 @@ saltcav calibrate configs/demo_calibration.yaml --data data/demo/well-1 --plot c
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 
+## Python API и консоль
+
+Всё, что делают окно и командная строка, доступно из Python — для серий расчётов,
+своих графиков, Jupyter:
+
+```python
+import saltcav.api as sc
+
+cfg = sc.load("configs/example.yaml")
+cfg = sc.set(cfg, {"leaching.k0_m_per_s": 2e-5, "schedule.stages.0.rate_m3_per_h": 60})
+res = sc.run(cfg)  # выщелачивание
+print(sc.table(res))  # объём, радиус, рассол по времени
+sc.plot(res, "leach.png")
+ens = sc.ensemble(cfg, n=200)  # Монте-Карло; mechanics, stability, calibrate — так же
+```
+
+В окне — «Вид → Консоль Python» (Ctrl+`) и «Файл → Выполнить скрипт…» (Ctrl+R): там же
+`cfg` — параметры из формы, `show(obj)` — результат на вкладку, `apply(cfg)` — в форму.
+Примеры — `examples/`.
+
 ## Конфигурация в редакторе
 
 Расчёт задаётся YAML-файлом (примеры — в `configs/`). Для подсказок и проверки прямо в

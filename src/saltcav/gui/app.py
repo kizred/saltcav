@@ -268,6 +268,8 @@ class MainWindow(QtWidgets.QMainWindow):
         act("Сохранить устойчивость (.npz)…", self.save_surrogate, menu=mf)
         act("Сохранить калибровку (.npz)…", self.save_calibration, menu=mf)
         mf.addSeparator()
+        act("Выполнить скрипт Python…", self.run_script_dialog, "Ctrl+R", menu=mf)
+        mf.addSeparator()
         act("Выход", self.close, "Ctrl+Q", menu=mf)
         tb.addSeparator()
         mr = self.menuBar().addMenu("Расчёт")
@@ -281,12 +283,101 @@ class MainWindow(QtWidgets.QMainWindow):
                            sp.SP_FileDialogContentsView, mr)  # fmt: skip
         for a in (self.run_act, self.ens_act, self.mech_act, self.cal_act):
             tb.addAction(a)
+        mv = self.menuBar().addMenu("Вид")
+        self.console_act = act("Консоль Python", self.toggle_console, "Ctrl+`",
+                               sp.SP_TitleBarNormalButton, mv)  # fmt: skip
+        tb.addSeparator()
+        tb.addAction(self.console_act)
         mh = self.menuBar().addMenu("Справка")
         act("Справка по полю", lambda: self.help_for_focus(), "F1", menu=mh)
         act("Руководство", lambda: self.show_help(), menu=mh)
         act("Справочник параметров", lambda: self.show_help("parameters"), menu=mh)
         mh.addSeparator()
         act("О программе", self.about, menu=mh)
+
+    # --- консоль и скрипты ------------------------------------------------------------
+
+    def console(self) -> Any:
+        """Консоль Python (создаётся при первом обращении) в нижней панели окна."""
+        if getattr(self, "_console", None) is None:
+            from saltcav.gui.console import Console
+
+            self._console = Console(self)
+            dock = QtWidgets.QDockWidget("Консоль Python", self)
+            dock.setObjectName("console")
+            dock.setWidget(self._console)
+            self.addDockWidget(QtCore.Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+            self._console_dock = dock
+        return self._console
+
+    def toggle_console(self) -> None:
+        self.console()
+        dock, inp = self._console_dock, self._console.inp
+        if dock.isVisible() and inp.hasFocus():
+            dock.hide()
+            return
+        dock.show()
+        dock.raise_()
+        inp.setFocus()
+
+    def run_script_dialog(self) -> None:
+        start = str(self.path.parent) if self.path else ""
+        p, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Скрипт Python", start,
+                                                     "Python (*.py)")  # fmt: skip
+        if p:
+            self.run_script(Path(p))
+
+    def run_script(self, path: Path) -> bool:
+        """Выполнить файл .py в консоли (вывод — в консоль)."""
+        con = self.console()
+        self._console_dock.show()
+        con.write(f"— скрипт {path}\n")
+        return bool(con.run_source(path.read_text(encoding="utf-8"), str(path), path=path))
+
+    def apply_config(self, cfg: Any) -> None:
+        """Загрузить конфигурацию (RunConfig или словарь) в форму параметров."""
+        data = cfg.model_dump(mode="json") if hasattr(cfg, "model_dump") else dict(cfg)
+        self.load_dict(data)
+        self.dirty = True
+        self._update_title()
+        self.tabs.setCurrentIndex(0)
+
+    def show_object(self, obj: Any) -> None:
+        """Показать результат на его вкладке; фигуру matplotlib — в отдельном окне."""
+        from matplotlib.figure import Figure as MplFigure
+
+        from saltcav.calibration.fit import CalibResult
+        from saltcav.mechanics.run import MechanicsRun
+        from saltcav.stochastic.ensemble import EnsembleResult
+        from saltcav.surrogate.study import StudyResult
+
+        if isinstance(obj, Results):
+            self._show_results(obj)
+            self.tabs.setCurrentIndex(1)
+        elif isinstance(obj, EnsembleResult):
+            self._show_ensemble(obj, self.cfg)
+            self.tabs.setCurrentIndex(2)
+        elif isinstance(obj, MechanicsRun):
+            self._show_mech(obj)
+        elif isinstance(obj, StudyResult):
+            self._show_surrogate(obj)
+            self.tabs.setCurrentIndex(4)
+        elif isinstance(obj, CalibResult):
+            self._show_calibration(obj)
+        elif isinstance(obj, MplFigure):
+            dlg = QtWidgets.QDialog(self)
+            dlg.setWindowTitle("Рисунок")
+            lay = QtWidgets.QVBoxLayout(dlg)
+            canvas = FigureCanvasQTAgg(obj)
+            lay.addWidget(canvas)
+            w, h = obj.get_size_inches()
+            dlg.resize(int(w * 90), int(h * 90))
+            dlg.show()
+            self._figures = [*getattr(self, "_figures", []), dlg]
+        elif hasattr(obj, "model_dump"):
+            self.apply_config(obj)
+        else:
+            raise TypeError(f"не умею показать {type(obj).__name__}")
 
     # --- данные формы ---------------------------------------------------------------
 

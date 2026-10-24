@@ -112,6 +112,33 @@ saltcav моделирует скважинное выщелачивание с�
 скрытыми параметрами); открытый эталон — `data/open/sansmic-direct` с
 `configs/benchmark_sansmic_direct.yaml`.
 
+## Консоль Python и скрипты
+
+«Вид → Консоль Python» (Ctrl+`) — Python прямо в окне, как макросы в ANSYS APDL.
+Ctrl+Enter — выполнить; Ctrl+↑/↓ — история. Расчёт идёт в фоне, «Отмена» работает,
+если скрипт вызывает `progress(доля, текст)`.
+
+```python
+res = sc.run(sc.set(cfg, leaching__k0_m_per_s=2e-5))
+print(sc.table(res))
+show(res)  # на вкладку «Выщелачивание»
+for rate in (40, 60, 80):  # серия расчётов
+    r = sc.run(sc.set(cfg, {"schedule.stages.0.rate_m3_per_h": rate}))
+    print(rate, round(r.volume[-1]))
+show(sc.plot(r))  # рисунок в отдельном окне
+apply(sc.set(cfg, grid__nz=300))  # изменить параметры в форме
+```
+
+- `sc` — API: `load`, `save`, `get`, `set`, `run`, `ensemble`, `mechanics`,
+  `stability`, `calibrate`, `data`, `sweep`, `plot`, `table`;
+- `cfg` — параметры из формы на момент запуска; `show(obj)` — показать результат;
+  `apply(cfg)` — загрузить в форму; `progress(доля, текст)` — полоса хода.
+
+Путь параметра — как в YAML через точку; элементы списков — по номеру с нуля:
+`schedule.stages.1.rate_m3_per_h`, `geology.layers.0.top_m`. «Файл → Выполнить
+скрипт…» (Ctrl+R) выполняет файл .py в той же среде; такие же скрипты работают и без
+окна: `python скрипт.py` с `import saltcav.api as sc`. Примеры — папка `examples/`.
+
 ## Просмотр результатов
 
 - **Выщелачивание:** ползунок шагов, ▶ — воспроизведение, ← → — шаг; раскраска стенки
