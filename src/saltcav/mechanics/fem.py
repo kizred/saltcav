@@ -143,7 +143,8 @@ class AxiFEM:
     def internal(self, sig: FloatArray) -> FloatArray:
         """∫ Bᵀ σ: вектор узловых сил по напряжениям в точках (M, q, 4)."""
         fe = np.einsum("eqji,eqj,eq->ei", self.b, sig, self.wq)
-        return np.bincount(self.dofs.ravel(), fe.ravel(), minlength=self.ndof)
+        f = np.bincount(self.dofs.ravel(), fe.ravel(), minlength=self.ndof)
+        return np.asarray(f, dtype=np.float64)
 
     def strain(self, u: FloatArray) -> FloatArray:
         """Деформации в точках (M, q, 4) по узловым перемещениям."""

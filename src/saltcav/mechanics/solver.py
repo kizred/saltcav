@@ -145,7 +145,7 @@ def run_mechanics(fem: AxiFEM, setup: MechanicsSetup) -> MechanicsResult:
             step = min(dt, t_end - t, next_out - t)
             sig = sig0 + dsig
             rate, tang, ss, fac = setup.law.evaluate(sig, t_k, zeta, step)
-            d_t = np.linalg.inv(d_inv + step * tang)
+            d_t = np.asarray(np.linalg.inv(d_inv + step * tang), dtype=np.float64)
             k_t = fem.stiffness(d_t)
             pre = np.einsum("eqij,eqj->eqi", d_t, step * rate)
             du = fem.solve(k_t, fem.internal(pre))
