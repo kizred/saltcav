@@ -8,6 +8,9 @@
 
 | Документ | Что в нём |
 | --- | --- |
+| [Руководство пользователя](docs/user-guide.md) | Установка, первый расчёт, работа в окне, отчёт, консоль |
+| [Формат данных скважины](docs/data-format.md) | CSV: режим, рассол, сонар, прослои |
+| [Изменения](CHANGELOG.md) | Что вошло в версии |
 | [Паспорт работы](docs/passport.md) | Цели, физика, модель, данные, дорожная карта, риски |
 | [План разработки ПО](docs/software-plan.md) | Стек, архитектура, этапы с критериями приёмки |
 | [Прогресс и заметки](docs/progress.md) | Текущее состояние, журнал работ, открытые вопросы |
@@ -23,9 +26,13 @@ git clone https://github.com/kizred/saltcav.git
 cd saltcav
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pre-commit install
+pip install -r requirements/lock-1.0.txt   # проверенные версии зависимостей 1.0
+pip install -e ".[gui,mechanics,surrogate,calibration]"
+saltcav gui
 ```
+
+Для разработки — ещё `pip install -e ".[dev]"` и `pre-commit install`. Руководство
+пользователя — [docs/user-guide.md](docs/user-guide.md) (то же — «Справка» в окне).
 
 Дополнительные группы: `.[fast]` (Numba), `.[stochastic]`, `.[io]`, `.[viz]`, `.[gui]`
 (окно просмотра), `.[mechanics]` (Gmsh, PARDISO), `.[surrogate]` (scikit-learn).
@@ -33,14 +40,15 @@ pre-commit install
 ## Окно программы
 
 ```bash
-pip install -e ".[gui,mechanics]"
-saltcav gui configs/example_mechanics.yaml     # или ярлык saltcav-gui
+saltcav gui configs/demo_calibration.yaml     # или ярлык saltcav-gui
 ```
 
 Вкладки: **Параметры** (формы по разделам, схема скважины, ошибки с подсветкой) →
 **Выщелачивание** (просмотр по шагам) → **Ансамбль** (огибающие, таблица реализаций) →
-**Геомеханика** (разрез массива по годам). Кнопки: Проверить (Ctrl+K), Рассчитать (F5),
-Ансамбль (F6), Геомеханика (F7). Файл — тот же YAML, что и для командной строки.
+**Геомеханика** (разрез массива по годам) → **Устойчивость** (вероятность по ансамблю) →
+**Калибровка** (по данным скважины). Кнопки: Проверить (Ctrl+K), Рассчитать (F5),
+Ансамбль (F6), Геомеханика (F7), Калибровка (F8), Отчёт (Ctrl+P), Консоль Python
+(Ctrl+`). Файл — тот же YAML, что и для командной строки.
 
 ## Проверка
 
@@ -59,6 +67,7 @@ saltcav mechanics hist.npz --years 30 --plot mech.png   # по сохранён�
 saltcav mechanics h3d.npz --model 3d --plot mech3d.png   # полная 3D-форма (минуты)
 saltcav surrogate configs/example_ensemble.yaml -n 200 --plot stab.png   # P(потери устойчивости)
 saltcav data data/demo/well-1                                       # проверить данные скважины
+saltcav report configs/example_ensemble.yaml --out report.html --all  # отчёт (минуты)
 saltcav calibrate configs/demo_calibration.yaml --data data/demo/well-1 --plot calib.png \
         --write-config calibrated.yaml                              # калибровка → ансамбль
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC

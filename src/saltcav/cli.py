@@ -1,7 +1,7 @@
 """Командная строка: ``saltcav <команда>``.
 
 Команды: ``version``, ``schema``, ``gui``, ``check``, ``run``, ``view``, ``ensemble``,
-``mechanics``, ``surrogate``, ``data``, ``synth``, ``calibrate``; ``report`` — этап 9.
+``mechanics``, ``surrogate``, ``data``, ``synth``, ``calibrate``, ``report``.
 """
 
 from __future__ import annotations
@@ -507,6 +507,42 @@ def _cmd_calibrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    """Отчёт HTML в один клик: готовые результаты + досчитанные разделы."""
+    import saltcav.api as sc
+    from saltcav.report import PARTS, make_report
+
+    cfg = _load_cfg(args.config)
+    if cfg is None:
+        return 1
+    compute = list(PARTS) if args.all else [p for p in (args.compute or "leaching").split(",") if p]
+    try:
+        kw: dict[str, object] = {}
+        for key in ("results", "ensemble", "mechanics", "stability", "calibration"):
+            path = getattr(args, key)
+            if path:
+                kw[key] = sc.load(path)
+        if args.data:
+            kw["data"] = sc.data(args.data)
+            if "calibration" not in kw and args.calibrate:
+                print("калибровка…")
+                kw["calibration"] = sc.calibrate(cfg, args.data, jobs=args.jobs)
+        t0 = time.perf_counter()
+
+        def progress(frac: float, text: str) -> None:
+            print(f"\r  {text} ({time.perf_counter() - t0:.0f} с)" + " " * 10, end="", flush=True)
+
+        out = make_report(cfg, args.out, compute=compute, n=args.n, jobs=args.jobs,
+                          progress=progress, **kw)  # type: ignore[arg-type]  # fmt: skip
+    except (OSError, ValueError, ValidationError, RuntimeError) as exc:
+        print(f"\nОшибка: {exc}", file=sys.stderr)
+        return 1
+    print(f"\rотчёт: {out} ({out.stat().st_size / 1e6:.1f} МБ, {time.perf_counter() - t0:.0f} с)"
+          + " " * 20)  # fmt: skip
+    print("  открыть в браузере; в PDF — «Печать → Сохранить как PDF»")
+    return 0
+
+
 def _cmd_ensemble(args: argparse.Namespace) -> int:
     from saltcav.stochastic.ensemble import run_ensemble
 
@@ -678,6 +714,20 @@ def main(argv: list[str] | None = None) -> int:
     p_cal.add_argument("--plot", help="сохранить картинку .png")
     p_cal.add_argument("--write-config", help="записать откалиброванный YAML (для ансамбля)")
 
+    p_rep = sub.add_parser("report", help="отчёт HTML в один клик (печать в PDF — из браузера)")
+    p_rep.add_argument("config", help="YAML-конфигурация")
+    p_rep.add_argument("--out", default="report.html", help="файл отчёта .html")
+    p_rep.add_argument("--compute", help="досчитать: leaching,ensemble,mechanics,stability")
+    p_rep.add_argument("--all", action="store_true", help="досчитать всё (ансамбль — минуты)")
+    p_rep.add_argument("-n", type=int, help="реализаций ансамбля (по умолчанию из YAML)")
+    p_rep.add_argument("--jobs", type=int, default=0, help="процессов (0 — все ядра)")
+    for key, what in (("results", "выщелачивание"), ("ensemble", "ансамбль"),
+                      ("mechanics", "геомеханика"), ("stability", "устойчивость"),
+                      ("calibration", "калибровка")):  # fmt: skip
+        p_rep.add_argument(f"--{key}", help=f"готовый результат: {what} (.npz)")
+    p_rep.add_argument("--data", help="папка данных скважины (сводка и замечания)")
+    p_rep.add_argument("--calibrate", action="store_true", help="откалибровать по --data")
+
     args = parser.parse_args(argv)
     if args.command == "version":
         print(__version__)
@@ -704,6 +754,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_synth(args)
     if args.command == "calibrate":
         return _cmd_calibrate(args)
+    if args.command == "report":
+        return _cmd_report(args)
     return 2  # pragma: no cover
 
 
