@@ -36,7 +36,10 @@ class WallProperties:
     def from_config(cls, geo: GeologyConfig, grid: CavernGrid) -> WallProperties:
         shape = (grid.nz + 1, grid.nphi)
         phi0 = np.deg2rad(geo.k_variation_azimuth_deg)
-        k_phi = 1.0 + geo.k_variation * np.cos(grid.phi_centers - phi0)
+        # при одном секторе азимутальной неоднородности нет: иначе cos(φ − φ₀) единственного
+        # сектора (φ = 180°) молча менял бы общую скорость растворения
+        a = geo.k_variation if grid.nphi > 1 else 0.0
+        k_phi = 1.0 + a * np.cos(grid.phi_centers - phi0)
         k_mult = np.broadcast_to(k_phi, shape).astype(float)
         for il in interlayers_from_config(geo, grid):
             k_mult[il.i0 : il.i1 + 1, :] = 0.0  # прослой не растворяется

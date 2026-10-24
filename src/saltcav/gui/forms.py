@@ -26,6 +26,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 Path = tuple[str | int, ...]
 ERROR_STYLE = "background: #fbe3e1;"
+WARN_STYLE = "background: #fdf1d6;"
 _PATTERN_CHOICES = re.compile(r"^\^\(([\w|]+)\)\$$")
 
 
@@ -201,11 +202,13 @@ class ScalarEditor:
             return True, parse_number(text, self.ann is int)
         return True, text
 
-    def set_error(self, msg: str | None) -> None:
-        self.widget.setStyleSheet(ERROR_STYLE if msg else "")
+    def set_error(self, msg: str | None, warn: bool = False) -> None:
+        style = WARN_STYLE if warn else ERROR_STYLE
+        self.widget.setStyleSheet(style if msg else "")
+        color = "#a86b00" if warn else "#c0392b"
         base = tooltip(self.name, self.info)
         self.widget.setToolTip(
-            base + (f"<br><span style='color:#c0392b'>{msg}</span>" if msg else "")
+            base + (f"<br><span style='color:{color}'>{msg}</span>" if msg else "")
         )
 
 
@@ -399,10 +402,15 @@ class ModelForm(QtWidgets.QWidget):
     """Форма вложенной модели: скалярные поля, группы и таблицы."""
 
     def __init__(
-        self, model: type[BaseModel], on_change: Callable[[], None], skip: tuple[str, ...] = ()
+        self,
+        model: type[BaseModel],
+        on_change: Callable[[], None],
+        skip: tuple[str, ...] = (),
+        prefix: str = "",
     ) -> None:
         super().__init__()
         self.model = model
+        self.prefix = prefix
         self.on_change = on_change
         self.scalars: dict[str, ScalarEditor] = {}
         self.subforms: dict[str, ModelForm] = {}
@@ -425,7 +433,7 @@ class ModelForm(QtWidgets.QWidget):
             if isinstance(ann, type) and issubclass(ann, BaseModel):
                 box = QtWidgets.QGroupBox(label_of(name, info))
                 box.setToolTip(tooltip(name, info))
-                sub = ModelForm(ann, on_change)
+                sub = ModelForm(ann, on_change, prefix=self._path(name))
                 QtWidgets.QVBoxLayout(box).addWidget(sub)
                 if optional:
                     box.setCheckable(True)
@@ -435,10 +443,12 @@ class ModelForm(QtWidgets.QWidget):
                 outer.addWidget(box)
             elif get_origin(ann) is list and _is_model(get_args(ann)[0]):
                 tab = ListTable(name, info, get_args(ann)[0], on_change)
+                tab.table.setProperty("saltcav_path", self._path(name) + "[]")
                 self.tables[name] = tab
                 outer.addWidget(tab)
             else:
                 ed = ScalarEditor(name, info, on_change)
+                ed.widget.setProperty("saltcav_path", self._path(name))
                 self.scalars[name] = ed
                 lab = QtWidgets.QLabel(label_of(name, info))
                 lab.setWordWrap(True)
@@ -446,6 +456,9 @@ class ModelForm(QtWidgets.QWidget):
                 lab.setMinimumWidth(260)
                 form.addRow(lab, ed.widget)
         outer.addStretch(1)
+
+    def _path(self, name: str) -> str:
+        return f"{self.prefix}.{name}" if self.prefix else name
 
     def set(self, data: dict[str, Any]) -> None:
         for name, ed in self.scalars.items():
@@ -494,16 +507,16 @@ class ModelForm(QtWidgets.QWidget):
         for tab in self.tables.values():
             tab.clear_errors()
 
-    def mark_error(self, loc: Path, msg: str) -> bool:
+    def mark_error(self, loc: Path, msg: str, warn: bool = False) -> bool:
         """Подсветить поле по пути ошибки; True — нашлось."""
         if not loc:
             return False
         head, rest = loc[0], loc[1:]
         if head in self.scalars:
-            self.scalars[str(head)].set_error(msg)
+            self.scalars[str(head)].set_error(msg, warn)
             return True
         if head in self.subforms:
-            return self.subforms[str(head)].mark_error(rest, msg)
+            return self.subforms[str(head)].mark_error(rest, msg, warn)
         if head in self.tables:
             row = rest[0] if rest and isinstance(rest[0], int) else -1
             field = rest[1] if len(rest) > 1 and isinstance(rest[1], str) else None

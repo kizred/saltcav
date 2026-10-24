@@ -142,3 +142,28 @@ def test_cancel(win: Any) -> None:
     win.wait()
     assert win.ensemble is None
     assert "отменено" in win.statusBar().currentMessage()
+
+
+def test_warnings_shown_but_not_blocking(win: Any) -> None:
+    win.open_path(ROOT / "configs" / "example_ledges.yaml")
+    win.forms["geology"].scalars["k_variation"].widget.setText("0.3")
+    cfg = win.validate()
+    assert cfg is not None and win.run_act.isEnabled()  # предупреждение не блокирует
+    items = [win.errors.item(i).text() for i in range(win.errors.count())]
+    assert len(items) == 1 and items[0].startswith("⚠ geology.k_variation")
+    assert "fdf1d6" in win.forms["geology"].scalars["k_variation"].widget.styleSheet()
+
+
+def test_help_dialog_and_f1(win: Any) -> None:
+    from saltcav.gui.help import guide_markdown, parameters_html
+
+    assert "Рабочий цикл" in guide_markdown()
+    ref = parameters_html()
+    for path in ("grid.nphi", "mechanics.stages", "geology.layers.kind"):
+        assert f"name='p-{path.replace('.', '-')}'" in ref, path
+    win.section_tabs.setCurrentIndex(0)
+    nz = win.forms["grid"].scalars["nz"].widget
+    win.help_for_focus(nz)
+    dlg = win._help
+    assert dlg.isVisible() and dlg.tabs.currentIndex() == 1
+    dlg.close()

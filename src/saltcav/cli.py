@@ -35,6 +35,10 @@ def _cmd_check(args: argparse.Namespace) -> int:
         f"{len(cfg.schedule.stages)} ступ., {total:g} сут, "
         f"{cfg.ensemble.n_realizations} реализаций"
     )
+    from saltcav.core.config import config_warnings
+
+    for loc, msg in config_warnings(cfg):
+        print(f"  внимание, {'.'.join(loc)}: {msg}")
     return 0
 
 

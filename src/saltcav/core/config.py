@@ -371,6 +371,48 @@ class RunConfig(_Strict):
         return self
 
 
+def config_warnings(cfg: RunConfig) -> list[tuple[tuple[str, ...], str]]:
+    """Несогласованные, но допустимые параметры: (путь поля, сообщение).
+
+    Расчёт они не блокируют — это подсказки, что результат не тот, какого ждут.
+    """
+    out: list[tuple[tuple[str, ...], str]] = []
+    geo, unc, nphi = cfg.geology, cfg.uncertainty, cfg.grid.nphi
+    if nphi == 1 and geo.k_variation > 0:
+        out.append(
+            (
+                ("geology", "k_variation"),
+                "асимметрия задана, но сектор по азимуту один (grid.nphi = 1) — она не "
+                "учитывается; для 3D задайте nphi 12–36",
+            )
+        )
+    if nphi == 1 and unc.k_field_sigma > 0:
+        out.append(
+            (
+                ("uncertainty", "k_field_sigma"),
+                "при одном секторе поле ln k меняется только по глубине — камера в ансамбле "
+                "останется осесимметричной",
+            )
+        )
+    if nphi > 1 and geo.k_variation == 0 and unc.k_field_sigma == 0:
+        out.append(
+            (
+                ("grid", "nphi"),
+                f"{nphi} секторов, но источника асимметрии нет (k_variation и k_field_sigma = 0) "
+                "— результат как при nphi = 1, только считается дольше",
+            )
+        )
+    if nphi > 1 and unc.k_field_sigma > 0 and geo.k_variation == 0:
+        out.append(
+            (
+                ("uncertainty", "k_field_sigma"),
+                "случайная асимметрия действует только в ансамбле и его реализациях; "
+                "одиночный расчёт — с однородной породой",
+            )
+        )
+    return out
+
+
 SCHEMA_ID = "https://github.com/kizred/saltcav/schema/saltcav-config.schema.json"
 
 
