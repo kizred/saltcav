@@ -191,14 +191,17 @@ def _cmd_mechanics(args: argparse.Namespace) -> int:
     v_fem = f"{run.volume0:,.0f}".replace(",", " ")
     v_leach = f"{run.leaching_volume:,.0f}".replace(",", " ")
     print(f"  объём полости в МКЭ {v_fem} м³ (по выщелачиванию {v_leach})")
-    print("  годы   потеря V, %   %/год   мин. FOS у стенки   зона FOS<1, м³   σ_t−p, МПа")
+    head = ("годы", "потеря V, %", "%/год", "FOS у стенки: мин / 5 %", "зона FOS<1, м³")
+    print("  " + "   ".join(head) + "   σ_t−p: мин / 5 %, МПа")
     marks = (int(np.argmin(np.abs(s.years - y))) for y in (1, 5, 10))
     picks = sorted({0, *marks, len(s.years) - 1})
     for k in picks:
         print(
             f"  {s.years[k]:5.1f}  {s.convergence_pct[k]:10.2f}"
-            f"  {s.convergence_rate_pct_yr[k]:7.3f}  {s.min_fos_wall[k]:17.2f}"
-            f"  {s.dilatant_volume_m3[k]:15.0f}  {s.tension_margin_mpa[k]:11.1f}"
+            f"  {s.convergence_rate_pct_yr[k]:7.3f}"
+            f"  {s.min_fos_wall[k]:13.2f} / {p5(s.fos_wall_p5, k):4.2f}"
+            f"  {s.dilatant_volume_m3[k]:15.0f}"
+            f"  {s.tension_margin_mpa[k]:10.1f} / {p5(s.tension_margin_p5_mpa, k):4.1f}"
         )
     if args.out:
         run.save(args.out)
@@ -210,6 +213,10 @@ def _cmd_mechanics(args: argparse.Namespace) -> int:
         plot_mechanics(run, args.plot, idx)
         print(f"  картинка: {args.plot}")
     return 0
+
+
+def p5(arr: np.ndarray | None, k: int) -> float:
+    return float("nan") if arr is None else float(arr[k])
 
 
 def _is_mechanics(path: Path) -> bool:
@@ -240,11 +247,84 @@ def _mechanics_from_source(src: Path, args: argparse.Namespace) -> MechanicsRun:
     day = args.day if args.day is not None else mc.day
     i = res.nt - 1 if day is None else res.frame_at(day)
     t0 = time.perf_counter()
+    total = sum(st.duration_years for st in mc.stages)
+
+    def progress(frac: float) -> None:
+        el = time.perf_counter() - t0
+        print(f"\r  геомеханика: {100 * frac:5.1f} % ({frac * total:.1f} из {total:g} лет, "
+              f"{el:.0f} с)", end="", flush=True)  # fmt: skip
+
     run = run_from_shape(
-        mc, res.z_edges, res.radius[i], res.name, float(res.days[i]), float(res.volume[i])
-    )
-    print(f"геомеханика: {time.perf_counter() - t0:.1f} с")
+        mc, res.z_edges, res.radius[i], res.name, float(res.days[i]), float(res.volume[i]),
+        progress=progress if sys.stdout.isatty() or mc.model == "3d" else None,
+    )  # fmt: skip
+    print(f"\rгеомеханика: {time.perf_counter() - t0:.1f} с" + " " * 40)
     return run
+
+
+def _cmd_surrogate(args: argparse.Namespace) -> int:
+    """Вероятность потери устойчивости по ансамблю через суррогат геомеханики."""
+    from saltcav.stochastic.ensemble import EnsembleResult, run_ensemble
+    from saltcav.surrogate.study import KEY, TARGETS, run_study
+
+    try:
+        cfg = load_config(args.config)
+    except (OSError, ValidationError, ValueError) as exc:
+        print(f"Ошибка в {args.config}:\n{exc}", file=sys.stderr)
+        return 1
+    pairs = (
+        ("n_train", args.train),
+        ("adaptive", args.adaptive),
+        ("n_3d", args.n3d),
+        ("fos_threshold", args.threshold),
+    )
+    upd = {k: v for k, v in pairs if v is not None}
+    cfg = cfg.model_copy(update={"surrogate": cfg.surrogate.model_copy(update=upd)})
+    t0 = time.perf_counter()
+    if args.ensemble:
+        ens = EnsembleResult.load(args.ensemble)
+        print(f"ансамбль из {args.ensemble}: {ens.n} реализаций")
+    else:
+        ens = run_ensemble(cfg, n=args.n, seed=args.seed, jobs=args.jobs)
+        print(f"ансамбль: {ens.n} реализаций, {time.perf_counter() - t0:.0f} с")
+        if args.save_ensemble:
+            ens.save(args.save_ensemble)
+
+    def progress(frac: float, text: str) -> None:
+        el = time.perf_counter() - t0
+        print(f"\r  {text} ({el:.0f} с)" + " " * 10, end="", flush=True)
+
+    res = run_study(cfg, ens.z_edges, ens.radius, seed=ens.seed, jobs=args.jobs, progress=progress)
+    print(f"\rсуррогат: {res.train.size} расчётов механики"
+          + (f" + {res.hf.size} в 3D" if res.hf.size else "")
+          + f", {time.perf_counter() - t0:.0f} с" + " " * 30)  # fmt: skip
+    thr = res.threshold
+    p, p_unc = res.prob_below()
+    p15, _ = res.prob_below(threshold=1.5)
+    print(f"  P(запас по дилатансии < {thr:g}) = {p:.3f} ± {res.prob_ci(p):.3f}"
+          f"   (с неопределённостью суррогата {p_unc:.3f})")  # fmt: skip
+    print(f"  P(запас < 1.5)                  = {p15:.3f}")
+    print("                                         P10 / P50 / P90")
+    for name, (label, _) in TARGETS.items():
+        q = res.quantiles(name)
+        print(f"  {label:<44.44} {q[0]:.2f} / {q[1]:.2f} / {q[2]:.2f}")
+    print("  проверка вне обучения (R², доля попаданий в 90 %-интервал):")
+    for name, d in res.cv.items():
+        note = "" if res.explains(name) else "  — разброс ≈ погрешности расчёта, выход ≈ постоянный"
+        print(f"    {name:<16} R² = {d['r2']:5.2f}, {100 * d['coverage90']:3.0f} %{note}")
+    crit = res.critical(5)
+    j = res.column(KEY)
+    print("  наименьший запас — реализации: " + ", ".join(
+        f"#{i} ({res.mu[i, j]:.2f})" for i in crit))  # fmt: skip
+    if args.out:
+        res.save(args.out)
+        print(f"  результат: {args.out}")
+    if args.plot:
+        from saltcav.viz.surrogate_plot import plot_surrogate
+
+        plot_surrogate(res, args.plot, f"«{cfg.name}»: устойчивость по {res.n} реализациям")
+        print(f"  картинка: {args.plot}")
+    return 0
 
 
 def _cmd_ensemble(args: argparse.Namespace) -> int:
@@ -347,6 +427,19 @@ def main(argv: list[str] | None = None) -> int:
     p_ens.add_argument("--radius-limit", type=float, help="порог для P(макс. радиус > порог)")
     p_ens.add_argument("--out", help="сохранить ансамбль в .npz")
     p_ens.add_argument("--plot", help="сохранить огибающие в .png")
+    p_sur = sub.add_parser("surrogate", help="вероятность потери устойчивости по ансамблю")
+    p_sur.add_argument("config", help="путь к YAML (разделы ensemble, mechanics, surrogate)")
+    p_sur.add_argument("--ensemble", help="готовый ансамбль .npz (иначе — расчёт)")
+    p_sur.add_argument("-n", type=int, help="размер ансамбля, если считать заново")
+    p_sur.add_argument("--seed", type=int, help="seed ансамбля")
+    p_sur.add_argument("--jobs", type=int, default=0, help="процессов (0 — все ядра)")
+    p_sur.add_argument("--train", type=int, help="начальная выборка (surrogate.n_train)")
+    p_sur.add_argument("--adaptive", type=int, help="уточнение у границы (surrogate.adaptive)")
+    p_sur.add_argument("--n3d", type=int, help="3D-расчётов для поправки (surrogate.n_3d)")
+    p_sur.add_argument("--threshold", type=float, help="порог запаса (surrogate.fos_threshold)")
+    p_sur.add_argument("--save-ensemble", help="сохранить посчитанный ансамбль .npz")
+    p_sur.add_argument("--out", help="сохранить результат .npz")
+    p_sur.add_argument("--plot", help="сохранить картинку .png")
     p_mech = sub.add_parser("mechanics", help="геомеханика: ползучесть и устойчивость камеры")
     p_mech.add_argument(
         "source", help="результаты .npz из run --out, YAML (с прогоном) или .npz из mechanics"
@@ -392,6 +485,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     if args.command == "view":
         return _cmd_view(args)
+    if args.command == "surrogate":
+        return _cmd_surrogate(args)
     if args.command == "mechanics":
         return _cmd_mechanics(args)
     if args.command == "ensemble":

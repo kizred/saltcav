@@ -28,7 +28,7 @@ pre-commit install
 ```
 
 Дополнительные группы: `.[fast]` (Numba), `.[stochastic]`, `.[io]`, `.[viz]`, `.[gui]`
-(окно просмотра), `.[mechanics]` (Gmsh для сетки геомеханики; сам МКЭ — NumPy/SciPy).
+(окно просмотра), `.[mechanics]` (Gmsh, PARDISO), `.[surrogate]` (scikit-learn).
 
 ## Окно программы
 
@@ -57,6 +57,7 @@ saltcav view configs/example_ensemble.yaml --realization 14 -n 200   # реал�
 saltcav mechanics configs/example_mechanics.yaml --out mech.npz --plot mech.png   # геомеханика
 saltcav mechanics hist.npz --years 30 --plot mech.png   # по сохранённой форме
 saltcav mechanics h3d.npz --model 3d --plot mech3d.png   # полная 3D-форма (минуты)
+saltcav surrogate configs/example_ensemble.yaml -n 200 --plot stab.png   # P(потери устойчивости)
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 
@@ -84,7 +85,7 @@ PyCharm и VS Code (с расширением YAML) тогда дописыва�
 | `src/saltcav/leaching`, `operations` | модель выщелачивания и режим | 2–4 |
 | `src/saltcav/stochastic` | случайные поля, ансамбли | 5 |
 | `src/saltcav/mesh`, `mechanics` | сетка Gmsh, осесимметричный МКЭ, ползучесть, критерии | 6 |
-| `src/saltcav/surrogate` | суррогат устойчивости | 7 |
+| `src/saltcav/surrogate` | признаки формы, гауссов процесс, вероятность потери устойчивости | 7 |
 | `src/saltcav/io`, `calibration` | данные и калибровка | 8 |
 | `src/saltcav/viz`, `cli.py` | визуализация, командная строка | 9 |
 | `configs/` | YAML-конфигурации | — |

@@ -242,6 +242,13 @@ class UncertaintyConfig(_Strict):
     rate_rel_sd: Annotated[
         float, Field(ge=0, le=0.5, description="Расход: относительное ст. отклонение по ступеням")
     ] = 0.0
+    creep_a_log_sd: Annotated[
+        float,
+        Field(ge=0, le=2, description="Геомеханика: σ ln множителя скорости ползучести A"),
+    ] = 0.0
+    overburden_density_sd: Annotated[
+        float, Field(ge=0, description="Геомеханика: ст. отклонение плотности покрывающих, кг/м³")
+    ] = 0.0
 
     @model_validator(mode="after")
     def _check_range(self) -> UncertaintyConfig:
@@ -354,6 +361,30 @@ class MechanicsConfig(_Strict):
     ] = 0.1
 
 
+class SurrogateConfig(_Strict):
+    """Суррогат устойчивости (этап 7): геомеханика для части реализаций ансамбля,
+    гауссов процесс по признакам формы — для остальных."""
+
+    n_train: Annotated[
+        int, Field(ge=5, description="Начальная выборка: реализаций с полным расчётом механики")
+    ] = 40
+    adaptive: Annotated[
+        int,
+        Field(ge=0, description="Дополнительных расчётов у границы устойчивости (уточнение)"),
+    ] = 30
+    n_3d: Annotated[
+        int,
+        Field(ge=0, description="Из них 3D-расчётов для поправки на асимметрию; 0 — без 3D"),
+    ] = 0
+    fos_threshold: Annotated[
+        float, Field(gt=0, description="Порог запаса по дилатансии: ниже — неустойчиво")
+    ] = 1.0
+    u_stop: Annotated[
+        float,
+        Field(gt=0, description="Уточнять, пока у какой-то реализации |μ − порог|/σ < u_stop"),
+    ] = 2.0
+
+
 class RunConfig(_Strict):
     """Конфигурация расчёта saltcav (YAML)."""
 
@@ -365,6 +396,7 @@ class RunConfig(_Strict):
     uncertainty: UncertaintyConfig = UncertaintyConfig()
     ensemble: EnsembleConfig = EnsembleConfig()
     mechanics: MechanicsConfig = MechanicsConfig()
+    surrogate: SurrogateConfig = SurrogateConfig()
 
     @model_validator(mode="after")
     def _check_depths_inside_grid(self) -> RunConfig:

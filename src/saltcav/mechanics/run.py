@@ -40,6 +40,10 @@ from saltcav.mesh.axisym import (
 FloatArray = NDArray[np.float64]
 
 
+def _arr(x: FloatArray | None) -> FloatArray:
+    return np.zeros(0) if x is None else x
+
+
 def creep_law(mc: MechanicsConfig) -> CreepLaw:
     branches = tuple(
         PowerBranch(b.a_per_day / 86_400.0, b.n, 1e3 * b.q_kj_per_mol) for b in mc.creep
@@ -140,6 +144,8 @@ class MechanicsRun:
             s_convergence_rate_pct_yr=s.convergence_rate_pct_yr, s_min_fos_wall=s.min_fos_wall,
             s_min_fos=s.min_fos, s_dilatant_volume_m3=s.dilatant_volume_m3,
             s_tension_margin_mpa=s.tension_margin_mpa, s_max_wall_disp_m=s.max_wall_disp_m,
+            s_fos_wall_p5=_arr(s.fos_wall_p5),
+            s_tension_margin_p5_mpa=_arr(s.tension_margin_p5_mpa),
             wall_elements=np.zeros(0, dtype=np.int64) if self.wall_elements is None
             else self.wall_elements,
             wall_centroids=np.zeros((0, 3)) if self.wall_centroids is None
@@ -155,6 +161,9 @@ class MechanicsRun:
                 d["s_years"], d["s_convergence_pct"], d["s_convergence_rate_pct_yr"],
                 d["s_min_fos_wall"], d["s_min_fos"], d["s_dilatant_volume_m3"],
                 d["s_tension_margin_mpa"], d["s_max_wall_disp_m"],
+                d["s_fos_wall_p5"] if "s_fos_wall_p5" in d and d["s_fos_wall_p5"].size else None,
+                d["s_tension_margin_p5_mpa"]
+                if "s_tension_margin_p5_mpa" in d and d["s_tension_margin_p5_mpa"].size else None,
             )  # fmt: skip
             return cls(
                 name=str(d["name"]), day=float(d["day"]), nodes=d["nodes"], tri=d["tri"],
