@@ -293,6 +293,52 @@ class PressureStageConfig(_Strict):
     label: str = Field(default="", description="Подпись ступени")
 
 
+class LayerMaterialConfig(_Strict):
+    """Материал нерастворимого прослоя в геомеханике (ангидрит, глина).
+
+    Прослой — отдельная зона сетки со своей упругостью; ползучесть — доля от закона
+    соли (0 — не ползёт). Выше прочности на сжатие (по Мизесу) прослой течёт
+    вязкопластически: упругий прослой, сцепленный с ползущей солью, иначе набрал бы
+    сотни МПа. Прочность на разрыв — для проверки карниза на отрыв.
+    """
+
+    kind: str = Field(pattern="^(anhydrite|clay)$", description="Порода: anhydrite или clay")
+    youngs_modulus_gpa: Annotated[float, Field(gt=0, description="Модуль Юнга, ГПа")]
+    poisson: Annotated[float, Field(gt=0, lt=0.5, description="Коэффициент Пуассона")]
+    creep_factor: Annotated[
+        float, Field(ge=0, description="Скорость ползучести / скорость соли; 0 — упругий")
+    ] = 0.0
+    compressive_strength_mpa: Annotated[
+        float,
+        Field(gt=0, description="Прочность на сжатие, МПа: выше (по Мизесу) — течение"),
+    ]
+    tensile_strength_mpa: Annotated[
+        float, Field(gt=0, description="Прочность на одноосное растяжение, МПа")
+    ]
+
+
+def _default_layer_materials() -> list[LayerMaterialConfig]:
+    # ангидрит: E 50–80 ГПа, ν 0,25–0,30, σ_р 5–10 МПа; глинистые прослои в соли
+    # (аргиллит): E 5–15 ГПа, ν 0,27–0,33, σ_сж 20–40, σ_р ~1 МПа — типичные значения,
+    # уточнить по керну; ангидрит σ_сж 60–100 МПа
+    return [
+        LayerMaterialConfig(
+            kind="anhydrite",
+            youngs_modulus_gpa=60.0,
+            poisson=0.28,
+            compressive_strength_mpa=80.0,
+            tensile_strength_mpa=5.0,
+        ),
+        LayerMaterialConfig(
+            kind="clay",
+            youngs_modulus_gpa=10.0,
+            poisson=0.30,
+            compressive_strength_mpa=25.0,
+            tensile_strength_mpa=1.0,
+        ),
+    ]
+
+
 class MechanicsConfig(_Strict):
     """Геомеханика: МКЭ вокруг формы камеры на выбранный момент, ползучесть соли.
 
@@ -311,6 +357,14 @@ class MechanicsConfig(_Strict):
     )
     h_wall_3d_m: Annotated[float, Field(gt=0, description="3D: размер элемента у стенки, м")] = 3.0
     h_wall_m: Annotated[float, Field(gt=0, description="Размер элемента у стенки, м")] = 1.0
+    interlayers: bool = Field(
+        default=True,
+        description="Прослои из раздела «Геология» — отдельным материалом (иначе всё — соль)",
+    )
+    layer_materials: list[LayerMaterialConfig] = Field(
+        default_factory=_default_layer_materials,
+        description="Свойства прослоев по породе (ангидрит, глина)",
+    )
     r_min_m: Annotated[
         float, Field(gt=0, description="Радиус, ниже которого сечение считается массивом, м")
     ] = 0.5

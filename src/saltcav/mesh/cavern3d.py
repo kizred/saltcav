@@ -10,6 +10,8 @@
 
 Область — цилиндр радиусом r_factor·R_max с запасом height_factor·размер сверху и
 снизу. Границы помечены: ``cavity``, ``outer``, ``top``, ``bottom``.
+Прослои — горизонтальные слои цилиндра со своим материалом (``Mesh3D.material``),
+сетка у кромок карнизов сгущается.
 Координаты: x, y — горизонталь, z — вверх (z = −глубина).
 """
 
@@ -33,6 +35,7 @@ class Mesh3D:
     faces: dict[str, IntArray] = field(default_factory=dict)  # (F, 6), порядок Gmsh
     tet_ref: FloatArray = field(default_factory=lambda: np.zeros((10, 3)))  # опорные узлы
     tri_ref: FloatArray = field(default_factory=lambda: np.zeros((6, 2)))
+    material: IntArray | None = None  # (M,) 0 — соль, k ≥ 1 — прослой
 
     @property
     def n_nodes(self) -> int:
@@ -104,6 +107,7 @@ def cavern_mesh_3d(
     r_min: float = 0.5,
     r_out: float | None = None,
     points_per_sector: int = 2,
+    bands: list[Any] | None = None,
 ) -> tuple[Mesh3D, Domain3D]:
     """Сетка массива вокруг камеры R(z, φ) (nphi ≥ 1)."""
     gmsh = _gmsh()
@@ -144,11 +148,38 @@ def cavern_mesh_3d(
                 wires.append(occ.addWire([curve]))
             solids += occ.addThruSections(wires, makeSolid=True, makeRuled=True)
         cyl = occ.addCylinder(0, 0, -dom.depth_bottom, 0, 0, dom.depth_bottom - dom.depth_top, ro)
-        body, _ = occ.cut([(3, cyl)], solids)
+        body, _ = occ.cut([(3, cyl)], solids, removeTool=False)
+        slabs: list[tuple[list[tuple[int, int]], int]] = []
+        thick = []
+        for b in bands or []:
+            top, bot = max(b.top, dom.depth_top), min(b.bottom, dom.depth_bottom)
+            if bot - top < 1e-6:
+                continue
+            s = occ.addCylinder(0, 0, -bot, 0, 0, bot - top, ro)
+            cut, _ = occ.cut([(3, s)], solids, removeTool=False)
+            if cut:
+                slabs.append((cut, b.material))
+                thick.append(bot - top)
+        occ.remove(solids, recursive=True)
+        vol_mat: dict[int, int] = {}
+        if slabs:
+            out, out_map = occ.fragment(body, [dt for cut, _ in slabs for dt in cut])
+            vol_mat = {t: 0 for d, t in out if d == 3}
+            k = len(body)
+            for cut, mat in slabs:
+                for _ in cut:
+                    for d, t in out_map[k]:
+                        if d == 3:
+                            vol_mat[t] = mat
+                    k += 1
+            body = [(3, t) for t in vol_mat]
         occ.synchronize()
 
         tags: dict[str, list[int]] = {"cavity": [], "outer": [], "top": [], "bottom": []}
-        for _, s in gmsh.model.getBoundary(body, oriented=False):
+        outer_surf = set()
+        for _, s in gmsh.model.getBoundary(body, combined=True, oriented=False):
+            s = abs(s)
+            outer_surf.add(s)
             x0, y0, z0, x1, y1, z1 = gmsh.model.getBoundingBox(2, s)
             reach = max(abs(x0), abs(x1), abs(y0), abs(y1))
             if abs(z1 - z0) < 1e-6 and abs(z0 + dom.depth_top) < 1e-6 and reach > 0.6 * ro:
@@ -161,41 +192,79 @@ def cavern_mesh_3d(
                 tags["cavity"].append(s)
         for name, ids in tags.items():
             gmsh.model.addPhysicalGroup(2, ids, name=name)
-        gmsh.model.addPhysicalGroup(3, [t for _, t in body], name="salt")
+        if vol_mat:
+            for m in sorted(set(vol_mat.values())):
+                ids = [t for t, mm in vol_mat.items() if mm == m]
+                gmsh.model.addPhysicalGroup(3, ids, name="salt" if m == 0 else f"layer{m}")
+        else:
+            gmsh.model.addPhysicalGroup(3, [t for _, t in body], name="salt")
 
         mf = gmsh.model.mesh.field
-        f_dist = mf.add("Distance")
-        mf.setNumbers(f_dist, "SurfacesList", tags["cavity"])
-        f_thr = mf.add("Threshold")
-        mf.setNumber(f_thr, "InField", f_dist)
-        mf.setNumber(f_thr, "SizeMin", h_wall)
-        mf.setNumber(f_thr, "SizeMax", dom.h_far)
-        mf.setNumber(f_thr, "DistMin", 0.5 * h_wall)
-        mf.setNumber(f_thr, "DistMax", dom.grow_distance)
-        mf.setAsBackgroundMesh(f_thr)
+        fields = []
+
+        def threshold(kind: str, ids: list[int], size_min: float, reach: float) -> None:
+            if not ids:
+                return
+            fd = mf.add("Distance")
+            mf.setNumbers(fd, kind, ids)
+            ft = mf.add("Threshold")
+            mf.setNumber(ft, "InField", fd)
+            mf.setNumber(ft, "SizeMin", size_min)
+            mf.setNumber(ft, "SizeMax", dom.h_far)
+            mf.setNumber(ft, "DistMin", 0.5 * size_min)
+            mf.setNumber(ft, "DistMax", reach)
+            fields.append(ft)
+
+        threshold("SurfacesList", tags["cavity"], h_wall, dom.grow_distance)
+        if vol_mat:
+            layer_vols = [(3, t) for t, m in vol_mat.items() if m > 0]
+            iface = sorted(
+                {abs(s) for _, s in gmsh.model.getBoundary(layer_vols, oriented=False)} - outer_surf
+            )
+            tips = []
+            for _, c in gmsh.model.getBoundary([(2, s) for s in iface], combined=False,
+                                               oriented=False):  # fmt: skip
+                x0, y0, _, x1, y1, _ = gmsh.model.getBoundingBox(1, abs(c))
+                if max(abs(x0), abs(x1), abs(y0), abs(y1)) < 0.6 * ro:
+                    tips.append(abs(c))
+            t_min = min(thick)
+            # в 3D мельче h/2 у кромок не дробим: число тетраэдров растёт как 1/h³
+            s_if = min(dom.h_far, max(h_wall, 2.0 * t_min))
+            threshold("SurfacesList", iface, s_if, 4.0 * s_if)
+            s_tip = min(h_wall, max(t_min / 2, h_wall / 2))
+            threshold("CurvesList", sorted(set(tips)), s_tip, 3.0 * h_wall)
+        f_min = mf.add("Min")
+        mf.setNumbers(f_min, "FieldsList", fields)
+        mf.setAsBackgroundMesh(f_min)
         for opt in ("MeshSizeExtendFromBoundary", "MeshSizeFromPoints", "MeshSizeFromCurvature"):
             gmsh.option.setNumber(f"Mesh.{opt}", 0)
         gmsh.option.setNumber("Mesh.Algorithm3D", 10)  # HXT, параллельный
         gmsh.option.setNumber("Mesh.ElementOrder", 2)
         gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)  # прямые рёбра: якобиан постоянный
         gmsh.model.mesh.generate(3)
-        mesh = _extract(gmsh, tags)
+        mesh = _extract(gmsh, tags, vol_mat or None)
     finally:
         gmsh.finalize()
     return mesh, dom
 
 
-def _extract(gmsh: Any, tags: dict[str, list[int]]) -> Mesh3D:
+def _extract(
+    gmsh: Any, tags: dict[str, list[int]], vol_mat: dict[int, int] | None = None
+) -> Mesh3D:
     ntags, coords, _ = gmsh.model.mesh.getNodes()
     ntags = np.asarray(ntags, dtype=np.int64)
     xyz = np.asarray(coords, dtype=float).reshape(-1, 3)
     index = np.full(int(ntags.max()) + 1, -1, dtype=np.int64)
     index[ntags] = np.arange(ntags.size)
-    types, _, el_nodes = gmsh.model.mesh.getElements(3)
-    tet_nodes = next(
-        np.asarray(n, dtype=np.int64) for t, n in zip(types, el_nodes, strict=True) if t == _TET10
-    )
-    tets = index[tet_nodes.reshape(-1, 10)]
+    blocks, mats = [], []
+    for v in vol_mat if vol_mat is not None else [-1]:
+        types, _, el_nodes = gmsh.model.mesh.getElements(3, v)
+        for t, nd in zip(types, el_nodes, strict=True):
+            if t == _TET10:
+                blk = np.asarray(nd, dtype=np.int64).reshape(-1, 10)
+                blocks.append(blk)
+                mats.append(np.full(blk.shape[0], 0 if vol_mat is None else vol_mat[v]))
+    tets = index[np.vstack(blocks)]
     faces: dict[str, IntArray] = {}
     for name, ids in tags.items():
         parts = []
@@ -219,6 +288,7 @@ def _extract(gmsh: Any, tags: dict[str, list[int]]) -> Mesh3D:
         faces={k: remap[v] for k, v in faces.items()},
         tet_ref=tet_ref,
         tri_ref=tri_ref,
+        material=np.concatenate(mats).astype(np.int64) if vol_mat is not None else None,
     )
 
 

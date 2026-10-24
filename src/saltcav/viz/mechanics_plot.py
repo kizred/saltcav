@@ -44,14 +44,21 @@ MECH_FIELDS: dict[str, tuple[str, str]] = {
     "disp": ("Смещение, см", "Blues"),
     "creep": ("Накопленная ползучесть, %", "YlOrBr"),
     "s3": ("Наименьшее главное напряжение (сжатие), МПа", "viridis"),
+    "tension": ("Растяжение (наибольшее главное), МПа", "Reds"),
 }
+LAYER_GREY = "#9a9a9a"  # прослои на поле запаса по дилатансии (критерий соли)
 
 
 def element_field(run: MechanicsRun, i: int, key: str) -> np.ndarray:
     """Поле по элементам в момент ``i``."""
     sig = run.stress[i]
     if key == "fos":
-        return np.asarray(dilatancy_fos(sig, run.dilatancy_coeff))
+        fos = np.asarray(dilatancy_fos(sig, run.dilatancy_coeff))
+        if run.material is not None:
+            fos = np.where(run.material > 0, np.nan, fos)  # критерий соли — не для прослоя
+        return fos
+    if key == "tension":
+        return np.asarray(np.maximum(-principal_compressive(sig)[..., -1], 0.0) / 1e6)
     if key == "vm":
         return np.asarray(von_mises(sig) / 1e6)
     if key == "disp":
@@ -69,9 +76,32 @@ def field_limits(run: MechanicsRun, key: str) -> tuple[float, float]:
     if key == "fos":
         return 0.0, 4.0
     vals = np.concatenate([element_field(run, i, key) for i in range(run.times.size)])
-    lo = 0.0 if key in ("vm", "disp", "creep") else float(np.percentile(vals, 0.5))
-    hi = float(np.percentile(vals, 99.5))
+    lo = 0.0 if key in ("vm", "disp", "creep", "tension") else float(np.percentile(vals, 0.5))
+    hi = float(np.percentile(vals, 99.5 if key != "tension" else 99.9))
     return lo, max(hi, lo + 1e-6)
+
+
+def _cmap(name: str) -> Any:
+    import matplotlib
+
+    return matplotlib.colormaps[name].with_extremes(bad=LAYER_GREY)
+
+
+def material_edges(run: MechanicsRun) -> list[tuple[int, int]]:
+    """Рёбра (вершины) на границах прослоев — для контура на разрезе (осесимметрия)."""
+    if run.material is None or run.dim != 2 or not np.any(run.material > 0):
+        return []
+    owner: dict[tuple[int, int], int] = {}
+    out = []
+    for e, t in enumerate(run.tri[:, :3]):
+        for a, b in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+            key = (int(min(a, b)), int(max(a, b)))
+            other = owner.pop(key, None)
+            if other is None:
+                owner[key] = e
+            elif run.material[other] != run.material[e]:
+                out.append(key)
+    return out
 
 
 def draw_section(
@@ -94,7 +124,9 @@ def draw_section(
     for tri, key, x0 in ((tri_l, left, 0.0), (tri_r, right, 0.53)):
         label, cmap = MECH_FIELDS[key]
         lo, hi = lims[key] if key in lims else field_limits(run, key)
-        m = ax.tripcolor(tri, facecolors=element_field(run, i, key), cmap=cmap, vmin=lo, vmax=hi)
+        cm = _cmap(cmap)
+        vals = np.ma.masked_invalid(element_field(run, i, key))
+        m = ax.tripcolor(tri, facecolors=vals, cmap=cm, vmin=lo, vmax=hi)
         cax = ax.inset_axes((x0, -0.2, 0.47, 0.03))
         cb = fig.colorbar(m, cax=cax, orientation="horizontal")
         cb.set_label(("← " if x0 == 0 else "") + label + (" →" if x0 > 0 else ""),
@@ -103,6 +135,9 @@ def draw_section(
     u = run.u[i] * deformed if deformed > 0 else None
     _outline(ax, run, 1, u)
     _outline(ax, run, -1, u)
+    for a, b in material_edges(run):
+        for sgn in (1, -1):
+            ax.plot(sgn * run.nodes[[a, b], 0], run.nodes[[a, b], 1], color=INK2, lw=0.5)
     ax.axvline(0, color=INK2, lw=0.6, ls=":")
     ax.set_xlim(-x_lim, x_lim)
     ax.set_ylim(y_lo, y_hi)
@@ -138,15 +173,15 @@ def _draw_section_3d(
     pts = np.asarray(sl.points)
     s = pts[:, 0] * np.cos(phi) + pts[:, 1] * np.sin(phi)  # координата вдоль плоскости
     faces = np.asarray(sl.faces).reshape(-1, 4)[:, 1:]
-    tri = Triangulation(s, pts[:, 2], faces)
     cen = s[faces].mean(axis=1)
     x_lim, y_lo, y_hi, _ = _window(run)
     lims = limits or {}
     for key, side, x0 in ((left, cen < 0, 0.0), (right, cen >= 0, 0.53)):
         label, cmap = MECH_FIELDS[key]
         lo, hi = lims[key] if key in lims else field_limits(run, key)
-        vals = np.asarray(sl.cell_data[key], dtype=float)
-        m = ax.tripcolor(tri, facecolors=np.where(side, vals, np.nan), cmap=cmap, vmin=lo, vmax=hi)
+        vals = np.ma.masked_invalid(np.asarray(sl.cell_data[key], dtype=float))
+        tri = Triangulation(s, pts[:, 2], faces, mask=~side)  # своя половина разреза
+        m = ax.tripcolor(tri, facecolors=vals, cmap=_cmap(cmap), vmin=lo, vmax=hi)
         cax = ax.inset_axes((x0, -0.2, 0.47, 0.03))
         cb = fig.colorbar(m, cax=cax, orientation="horizontal")
         cb.set_label(("← " if x0 == 0 else "") + label + (" →" if x0 > 0 else ""),
@@ -202,7 +237,12 @@ def draw_series(ax3: Any, ax4: Any, run: MechanicsRun, i: int) -> None:
     ax3.set_ylabel("потеря объёма, %")
     conv_t = f"Конвергенция: {s.convergence_pct[i]:.2f} %"
     rate_t = f"скорость {s.convergence_rate_pct_yr[i]:.3f} %/год"
-    ax3.set_title(f"{conv_t}, {rate_t}", loc="left", fontsize=10, color=INK)
+    head = f"{conv_t}, {rate_t}"
+    if s.layer_tension_mpa is not None and s.layer_tension_ratio is not None:
+        lt, lr = s.layer_tension_mpa[i], s.layer_tension_ratio[i]
+        mark = ": трещина" if lr > 1 else ""
+        head += f"\nПрослои: растяжение {max(lt, 0):.1f} МПа = {lr:.1f} прочности{mark}"
+    ax3.set_title(head, loc="left", fontsize=10, color=ACCENT if "трещина" in head else INK)
     ax4.plot(s.years, s.min_fos_wall, color=LINE, lw=1.8, label="у стенки")
     ax4.plot(s.years, s.min_fos, color=INK2, lw=1.0, ls="--", label="во всём массиве")
     ax4.axhline(1.0, color=ACCENT, lw=0.8)

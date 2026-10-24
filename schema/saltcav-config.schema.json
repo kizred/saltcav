@@ -375,6 +375,59 @@
       "title": "LayerKind",
       "type": "string"
     },
+    "LayerMaterialConfig": {
+      "additionalProperties": false,
+      "description": "Материал нерастворимого прослоя в геомеханике (ангидрит, глина).\n\nПрослой — отдельная зона сетки со своей упругостью; ползучесть — доля от закона\nсоли (0 — не ползёт). Выше прочности на сжатие (по Мизесу) прослой течёт\nвязкопластически: упругий прослой, сцепленный с ползущей солью, иначе набрал бы\nсотни МПа. Прочность на разрыв — для проверки карниза на отрыв.",
+      "properties": {
+        "kind": {
+          "description": "Порода: anhydrite или clay",
+          "pattern": "^(anhydrite|clay)$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "youngs_modulus_gpa": {
+          "description": "Модуль Юнга, ГПа",
+          "exclusiveMinimum": 0,
+          "title": "Youngs Modulus Gpa",
+          "type": "number"
+        },
+        "poisson": {
+          "description": "Коэффициент Пуассона",
+          "exclusiveMaximum": 0.5,
+          "exclusiveMinimum": 0,
+          "title": "Poisson",
+          "type": "number"
+        },
+        "creep_factor": {
+          "default": 0.0,
+          "description": "Скорость ползучести / скорость соли; 0 — упругий",
+          "minimum": 0,
+          "title": "Creep Factor",
+          "type": "number"
+        },
+        "compressive_strength_mpa": {
+          "description": "Прочность на сжатие, МПа: выше (по Мизесу) — течение",
+          "exclusiveMinimum": 0,
+          "title": "Compressive Strength Mpa",
+          "type": "number"
+        },
+        "tensile_strength_mpa": {
+          "description": "Прочность на одноосное растяжение, МПа",
+          "exclusiveMinimum": 0,
+          "title": "Tensile Strength Mpa",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "youngs_modulus_gpa",
+        "poisson",
+        "compressive_strength_mpa",
+        "tensile_strength_mpa"
+      ],
+      "title": "LayerMaterialConfig",
+      "type": "object"
+    },
     "LeachMode": {
       "enum": [
         "direct",
@@ -524,6 +577,20 @@
           "exclusiveMinimum": 0,
           "title": "H Wall M",
           "type": "number"
+        },
+        "interlayers": {
+          "default": true,
+          "description": "Прослои из раздела «Геология» — отдельным материалом (иначе всё — соль)",
+          "title": "Interlayers",
+          "type": "boolean"
+        },
+        "layer_materials": {
+          "description": "Свойства прослоев по породе (ангидрит, глина)",
+          "items": {
+            "$ref": "#/$defs/LayerMaterialConfig"
+          },
+          "title": "Layer Materials",
+          "type": "array"
         },
         "r_min_m": {
           "default": 0.5,
@@ -1028,6 +1095,25 @@
         "model": "axisym",
         "h_wall_3d_m": 3.0,
         "h_wall_m": 1.0,
+        "interlayers": true,
+        "layer_materials": [
+          {
+            "compressive_strength_mpa": 80.0,
+            "creep_factor": 0.0,
+            "kind": "anhydrite",
+            "poisson": 0.28,
+            "tensile_strength_mpa": 5.0,
+            "youngs_modulus_gpa": 60.0
+          },
+          {
+            "compressive_strength_mpa": 25.0,
+            "creep_factor": 0.0,
+            "kind": "clay",
+            "poisson": 0.3,
+            "tensile_strength_mpa": 1.0,
+            "youngs_modulus_gpa": 10.0
+          }
+        ],
         "r_min_m": 0.5,
         "r_factor": 8.0,
         "height_factor": 3.0,

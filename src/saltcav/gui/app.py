@@ -116,6 +116,16 @@ def find_schema(start: Path) -> Path | None:
     return None
 
 
+def _shape_layers(res: Results, cfg: RunConfig) -> list[Any]:
+    """Прослои формы: из её конфигурации (у реализации ансамбля — её отметки)."""
+    if res.config_yaml:
+        try:
+            return list(RunConfig.model_validate(yaml.safe_load(res.config_yaml)).geology.layers)
+        except (ValidationError, yaml.YAMLError):
+            pass
+    return list(cfg.geology.layers)
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, path: Path | None = None) -> None:
         super().__init__()
@@ -668,6 +678,7 @@ class MainWindow(QtWidgets.QMainWindow):
             run = run_from_shape(
                 mc, r.z_edges, r.radius[i], r.name, float(r.days[i]), float(r.volume[i]),
                 progress=lambda f: report(f, f"геомеханика: {100 * f:.0f} %"),
+                layers=_shape_layers(r, cfg),
             )  # fmt: skip
             return r, run
 
@@ -781,10 +792,11 @@ class MainWindow(QtWidgets.QMainWindow):
         jobs = os.cpu_count() or 1
 
         def job(report: Callable[[float, str], None]) -> Any:
+            from saltcav.mechanics.run import ensemble_layers
             from saltcav.surrogate.study import run_study
 
             return run_study(cfg, ens.z_edges, ens.radius, seed=ens.seed, jobs=jobs,
-                             progress=report)  # fmt: skip
+                             progress=report, layers=ensemble_layers(cfg, ens))  # fmt: skip
 
         def done(res: Any) -> None:
             self._show_surrogate(res)
