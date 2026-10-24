@@ -56,6 +56,7 @@ saltcav ensemble configs/example_ensemble.yaml -n 200 --jobs 0 --plot env.png   
 saltcav view configs/example_ensemble.yaml --realization 14 -n 200   # реализация ансамбля
 saltcav mechanics configs/example_mechanics.yaml --out mech.npz --plot mech.png   # геомеханика
 saltcav mechanics hist.npz --years 30 --plot mech.png   # по сохранённой форме
+saltcav mechanics h3d.npz --model 3d --plot mech3d.png   # полная 3D-форма (минуты)
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 

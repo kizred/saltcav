@@ -20,12 +20,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
-from saltcav.mechanics.creep import CreepLaw, von_mises
-from saltcav.mechanics.fem import M_VEC, QW, AxiFEM, elastic_matrix
+from saltcav.mechanics.creep import CreepLaw, trace_vector, von_mises
+from saltcav.mechanics.fem import QW, AxiFEM, elastic_matrix
 
 FloatArray = NDArray[np.float64]
 PressureFn = Callable[[FloatArray], FloatArray]  # p(y), Па; y = −глубина
@@ -76,20 +77,20 @@ class MechanicsResult:
         return np.asarray(1.0 - np.asarray(self.volume) / self.volume0)
 
 
-def _element_mean(x: FloatArray) -> FloatArray:
-    w = QW / QW.sum()
+def _element_mean(x: FloatArray, qw: FloatArray = QW) -> FloatArray:
+    w = qw / qw.sum()
     return np.asarray(np.einsum("q,eq...->e...", w, x))
 
 
 def _eq_strain(e: FloatArray) -> FloatArray:
     """Эквивалентная деформация √(2/3·e:e) девиатора (запись Манделя)."""
     tr = e[..., 0] + e[..., 1] + e[..., 2]
-    d = e - (tr / 3.0)[..., None] * M_VEC
+    d = e - (tr / 3.0)[..., None] * trace_vector(e.shape[-1])
     return np.asarray(np.sqrt(2.0 / 3.0 * np.einsum("...i,...i->...", d, d)))
 
 
 def run_mechanics(
-    fem: AxiFEM,
+    fem: AxiFEM | Any,
     setup: MechanicsSetup,
     progress: Callable[[float], None] | None = None,
 ) -> MechanicsResult:
@@ -106,10 +107,16 @@ def run_mechanics(
     elif setup.outer != "free":
         raise ValueError(f"outer: free или roller, не {setup.outer!r}")
 
-    d = elastic_matrix(setup.e_modulus, setup.nu)
+    d = (
+        fem.elastic(setup.e_modulus, setup.nu)
+        if hasattr(fem, "elastic")
+        else elastic_matrix(setup.e_modulus, setup.nu)
+    )
+    mvec = trace_vector(d.shape[0])
+    qw = getattr(fem, "qw", QW)
     d_inv = np.linalg.inv(d)
     k_el = fem.stiffness(d)
-    sig0 = -setup.lithostatic(fem.yq)[..., None] * M_VEC
+    sig0 = -setup.lithostatic(fem.yq)[..., None] * mvec
     t_k = setup.temperature_k(fem.yq)
 
     def load(stage: Stage) -> FloatArray:
@@ -119,18 +126,18 @@ def run_mechanics(
 
     res = MechanicsResult(volume0=fem.cavity_volume())
     shape_q = fem.yq.shape
-    eps_c = np.zeros((*shape_q, 4))
+    eps_c = np.zeros((*shape_q, d.shape[0]))
     zeta = np.zeros(shape_q)
     u = np.zeros(fem.ndof)
-    dsig = np.zeros((*shape_q, 4))
+    dsig = np.zeros((*shape_q, d.shape[0]))
     f_prev = np.zeros(fem.ndof)
 
     def record(t: float, i_stage: int) -> None:
         res.times.append(t)
         res.stage.append(i_stage)
-        res.u.append(u.reshape(-1, 2).copy())
-        res.stress.append(_element_mean(sig0 + dsig))
-        res.creep_eq.append(_element_mean(_eq_strain(eps_c)))
+        res.u.append(u.reshape(fem.mesh.n_nodes, -1).copy())
+        res.stress.append(_element_mean(sig0 + dsig, qw))
+        res.creep_eq.append(_element_mean(_eq_strain(eps_c), qw))
         res.volume.append(fem.cavity_volume(u))
 
     t = 0.0

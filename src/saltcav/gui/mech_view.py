@@ -10,7 +10,15 @@ from matplotlib.figure import Figure
 from PySide6 import QtCore, QtWidgets
 
 from saltcav.mechanics.run import MechanicsRun
-from saltcav.viz.mechanics_plot import MECH_FIELDS, SURFACE, draw_section, draw_series, field_limits
+from saltcav.viz.mechanics_plot import (
+    MECH_FIELDS,
+    SURFACE,
+    draw_section,
+    draw_series,
+    draw_wall_map,
+    field_limits,
+    widest_azimuth,
+)
 
 
 class MechanicsView(QtWidgets.QWidget):
@@ -40,6 +48,16 @@ class MechanicsView(QtWidgets.QWidget):
         self.scale.setValue(0)
         self.scale.setToolTip("0 — исходный контур; 50 — смещения увеличены в 50 раз")
         bar.addWidget(self.scale)
+        self.azimuth = QtWidgets.QSpinBox()
+        self.azimuth.setRange(0, 359)
+        self.azimuth.setWrapping(True)
+        self.azimuth.setSingleStep(15)
+        self.azimuth.setValue(round(widest_azimuth(run)))
+        self.azimuth.setToolTip("3D: азимут вертикального разреза через ось")
+        if run.dim == 3:
+            bar.addWidget(QtWidgets.QLabel("разрез по азимуту, °"))
+            bar.addWidget(self.azimuth)
+            self.scale.setEnabled(False)  # контур в 3D-разрезе — из самого сечения
         bar.addStretch(1)
         lay.addLayout(bar)
 
@@ -60,6 +78,7 @@ class MechanicsView(QtWidgets.QWidget):
         for w in (self.left, self.right):
             w.currentIndexChanged.connect(lambda _: self.redraw())
         self.scale.valueChanged.connect(lambda _: self.redraw())
+        self.azimuth.valueChanged.connect(lambda _: self.redraw())
         self.slider.valueChanged.connect(lambda _: self.redraw())
         self.redraw()
 
@@ -70,15 +89,20 @@ class MechanicsView(QtWidgets.QWidget):
     def redraw(self) -> None:
         run, i = self.run, self.index
         self.fig.clear()
-        gs = self.fig.add_gridspec(2, 2, width_ratios=(1.2, 1), hspace=0.45, wspace=0.25)
+        rows = 3 if run.dim == 3 else 2
+        gs = self.fig.add_gridspec(rows, 2, width_ratios=(1.2, 1), hspace=0.55, wspace=0.25)
         ax = self.fig.add_subplot(gs[:, 0])
-        ax3 = self.fig.add_subplot(gs[0, 1])
-        ax4 = self.fig.add_subplot(gs[1, 1])
+        ax3 = self.fig.add_subplot(gs[rows - 2, 1])
+        ax4 = self.fig.add_subplot(gs[rows - 1, 1])
         draw_section(
             self.fig, ax, run, i, self.left.currentData(), self.right.currentData(),
-            self.limits, float(self.scale.value()),
+            self.limits, float(self.scale.value()), float(self.azimuth.value()),
         )  # fmt: skip
         draw_series(ax3, ax4, run, i)
+        if run.dim == 3:
+            axw = self.fig.add_subplot(gs[0, 1])
+            draw_wall_map(self.fig, axw, run, i, self.left.currentData(), self.limits)
+            axw.set_title("Стенка (развёртка): поле слева", loc="left", fontsize=10)
         stage = run.stage[i]
         label = run.stage_labels[stage] if stage < len(run.stage_labels) else ""
         ax.set_title(f"{run.years[i]:.2f} лет, ступень {stage + 1} {label}", loc="left",

@@ -7,13 +7,14 @@
   напряжения вдоль стенки — кольцевое σ_θ и меридиональное σ_t (по касательной к
   профилю) — должны превышать давление в камере: min(σ_θ, σ_t) − p_кам > 0.
   Радиальное напряжение на стенке равно p_кам по граничному условию и в критерий
-  не входит.
+  не входит. В 3D — наименьшее главное напряжение в плоскости стенки.
 - **Конвергенция**: потеря объёма камеры, %/год.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -25,8 +26,23 @@ FloatArray = NDArray[np.float64]
 MPA = 1.0e6
 
 
+def tensor3(sig6: FloatArray) -> FloatArray:
+    """Тензор 3×3 из записи Манделя [xx, yy, zz, √2yz, √2xz, √2xy]."""
+    s = np.asarray(sig6)
+    t = np.empty((*s.shape[:-1], 3, 3))
+    t[..., 0, 0], t[..., 1, 1], t[..., 2, 2] = s[..., 0], s[..., 1], s[..., 2]
+    t[..., 1, 2] = t[..., 2, 1] = s[..., 3] / SQRT2
+    t[..., 0, 2] = t[..., 2, 0] = s[..., 4] / SQRT2
+    t[..., 0, 1] = t[..., 1, 0] = s[..., 5] / SQRT2
+    return t
+
+
 def principal_compressive(sig: FloatArray) -> FloatArray:
-    """Главные напряжения, сжатие положительно, по убыванию (…, 3)."""
+    """Главные напряжения, сжатие положительно, по убыванию (…, 3).
+    Запись Манделя: 4 компоненты (осесимметрия) или 6 (3D)."""
+    if np.shape(sig)[-1] == 6:
+        ev = np.linalg.eigvalsh(-tensor3(sig))
+        return np.asarray(ev[..., ::-1])
     c = -np.asarray(sig)
     sr, sz, st, srz = c[..., 0], c[..., 1], c[..., 2], c[..., 3] / SQRT2
     mean = 0.5 * (sr + sz)
@@ -51,13 +67,15 @@ def dilatancy_fos(sig: FloatArray, coeff: float = 0.27) -> FloatArray:
 
 @dataclass
 class ElementGeometry:
-    centroid: FloatArray  # (M, 2): r, y
-    volume: FloatArray  # (M,), м³ (с множителем 2π)
-    wall: NDArray[np.bool_]  # элементы с ребром на стенке полости
-    wall_tangent: FloatArray  # (M, 2): касательная к стенке у стеновых элементов, иначе 0
+    centroid: FloatArray  # (M, 2): r, y — или (M, 3): x, y, z; последняя — вертикаль
+    volume: FloatArray  # (M,), м³
+    wall: NDArray[np.bool_]  # элементы с ребром (гранью) на стенке полости
+    wall_tangent: FloatArray  # осесимметрия: (M, 2) касательная; 3D: (M, 3) нормаль стенки
 
 
-def element_geometry(fem: AxiFEM) -> ElementGeometry:
+def element_geometry(fem: Any) -> ElementGeometry:
+    if not isinstance(fem, AxiFEM):
+        return _element_geometry_3d(fem)
     m = fem.mesh
     w = QW / QW.sum()
     cen = np.stack([fem.rq @ w, fem.yq @ w], axis=1)
@@ -78,8 +96,41 @@ def element_geometry(fem: AxiFEM) -> ElementGeometry:
     return ElementGeometry(cen, vol, wall, tang)
 
 
+def _element_geometry_3d(fem: Any) -> ElementGeometry:
+    m = fem.mesh
+    w = fem.qw / fem.qw.sum()
+    cen = np.einsum("q,eqa->ea", w, fem.xq)
+    vol = fem.wq.sum(axis=1)
+    owner = fem._face_owner()
+    wall = np.zeros(m.n_elements, dtype=bool)
+    normal = np.zeros((m.n_elements, 3))
+    for face in m.faces.get("cavity", np.zeros((0, 6), dtype=np.int64)):
+        el = owner.get(tuple(sorted(face[:3].tolist())))
+        if el is None:
+            continue
+        a, b, c = m.nodes[face[:3]]
+        nv = np.cross(b - a, c - a)
+        nv /= np.linalg.norm(nv)
+        wall[el] = True
+        normal[el] = nv
+    return ElementGeometry(cen, vol, wall, normal)
+
+
 def wall_tangential(sig: FloatArray, tangent: FloatArray) -> FloatArray:
-    """Наименьшее (сжатие положительно) из σ_θ и σ_t вдоль стенки, Па (M,)."""
+    """Наименьшее (сжатие положительно) нормальное напряжение вдоль стенки, Па (M,).
+
+    Осесимметрия: min(σ_θ, σ_t), ``tangent`` — касательная к профилю. 3D: наименьшее
+    главное напряжение в плоскости стенки, ``tangent`` — нормаль к стенке."""
+    if np.shape(sig)[-1] == 6:
+        n = np.asarray(tangent)
+        ref = np.where(np.abs(n[:, [2]]) < 0.9, [[0.0, 0.0, 1.0]], [[1.0, 0.0, 0.0]])
+        t1 = np.cross(n, ref)
+        t1 /= np.maximum(np.linalg.norm(t1, axis=1, keepdims=True), 1e-12)
+        t2 = np.cross(n, t1)
+        tm = -tensor3(sig)
+        basis = np.stack([t1, t2], axis=1)  # (M, 2, 3)
+        plane = np.einsum("eia,eab,ejb->eij", basis, tm, basis)
+        return np.asarray(np.linalg.eigvalsh(plane)[:, 0])
     c = -np.asarray(sig)
     tr, tz = tangent[:, 0], tangent[:, 1]
     s_t = c[:, 0] * tr**2 + c[:, 1] * tz**2 + 2 * (c[:, 3] / SQRT2) * tr * tz
@@ -101,7 +152,7 @@ class Summary:
 
 
 def summarize(
-    fem: AxiFEM,
+    fem: Any,
     res: MechanicsResult,
     cavity_pressure: list[PressureFn],
     coeff: float = 0.27,
@@ -121,10 +172,11 @@ def summarize(
         out["fw"].append(float(np.min(fos[geo.wall])) if geo.wall.any() else float("nan"))
         out["f"].append(float(np.min(fos)))
         out["dv"].append(float(geo.volume[fos < 1.0].sum()))
-        p_cav = cavity_pressure[res.stage[k]](geo.centroid[:, 1])
+        p_cav = cavity_pressure[res.stage[k]](geo.centroid[:, -1])
         tm = (wall_tangential(sig, geo.wall_tangent) - p_cav)[geo.wall]
         out["tm"].append(float(np.min(tm)) / MPA if tm.size else float("nan"))
-        out["wd"].append(float(np.max(np.hypot(*u[cav_nodes].T))) if cav_nodes.size else 0.0)
+        disp = np.linalg.norm(u[cav_nodes], axis=1) if cav_nodes.size else np.zeros(1)
+        out["wd"].append(float(np.max(disp)))
     return Summary(
         years=years,
         convergence_pct=conv,
