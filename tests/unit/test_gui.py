@@ -282,3 +282,11 @@ def test_console_and_script(win: Any, tmp_path: Path) -> None:
     win.wait()
     app_.processEvents()
     assert "рисунок Figure" in con.out.toPlainText()
+
+
+def test_report_from_window(win: Any, tmp_path: Path) -> None:
+    win.open_path(ROOT / "configs" / "example.yaml")
+    out = tmp_path / "w.html"
+    win.make_report(out, ["leaching"], open_browser=False)
+    win.wait()
+    assert out.exists() and "2. Выщелачивание" in out.read_text(encoding="utf-8")

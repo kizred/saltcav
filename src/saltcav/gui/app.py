@@ -269,6 +269,7 @@ class MainWindow(QtWidgets.QMainWindow):
         act("Сохранить калибровку (.npz)…", self.save_calibration, menu=mf)
         mf.addSeparator()
         act("Выполнить скрипт Python…", self.run_script_dialog, "Ctrl+R", menu=mf)
+        self.report_act = act("Отчёт…", self.report_dialog, "Ctrl+P", sp.SP_FileDialogInfoView, mf)
         mf.addSeparator()
         act("Выход", self.close, "Ctrl+Q", menu=mf)
         tb.addSeparator()
@@ -287,6 +288,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.console_act = act("Консоль Python", self.toggle_console, "Ctrl+`",
                                sp.SP_TitleBarNormalButton, mv)  # fmt: skip
         tb.addSeparator()
+        tb.addAction(self.report_act)
         tb.addAction(self.console_act)
         mh = self.menuBar().addMenu("Справка")
         act("Справка по полю", lambda: self.help_for_focus(), "F1", menu=mh)
@@ -294,6 +296,80 @@ class MainWindow(QtWidgets.QMainWindow):
         act("Справочник параметров", lambda: self.show_help("parameters"), menu=mh)
         mh.addSeparator()
         act("О программе", self.about, menu=mh)
+
+    # --- отчёт ------------------------------------------------------------------------
+
+    def report_dialog(self) -> None:
+        """Отчёт в один клик: что уже посчитано — входит, недостающее — по галочкам."""
+        cfg = self.validate()
+        if cfg is None:
+            return
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Отчёт")
+        lay = QtWidgets.QVBoxLayout(dlg)
+        lay.addWidget(QtWidgets.QLabel("Разделы отчёта (готовые результаты берутся как есть):"))
+        have_res = self.results is not None and self.results_key == self._key(cfg)
+        boxes: dict[str, QtWidgets.QCheckBox] = {}
+        items = (
+            ("leaching", "Выщелачивание", have_res, "секунды"),
+            ("ensemble", "Ансамбль и карты вероятностей", self.ensemble is not None, "минуты"),
+            ("mechanics", "Геомеханика", self.mech is not None, "десятки секунд"),
+            ("stability", "Устойчивость по ансамблю", self.surrogate is not None,
+             "минуты — десятки минут"),
+        )  # fmt: skip
+        for key, label, have, cost in items:
+            b = QtWidgets.QCheckBox(f"{label} — " + ("готово" if have else f"посчитать ({cost})"))
+            b.setChecked(have or key == "leaching")
+            if key == "leaching":
+                b.setEnabled(False)
+            boxes[key] = b
+            lay.addWidget(b)
+        cal = QtWidgets.QCheckBox("Калибровка — готово")
+        cal.setChecked(self.calib is not None)
+        cal.setEnabled(self.calib is not None)
+        lay.addWidget(cal)
+        bb = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok
+            | QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        )
+        bb.accepted.connect(dlg.accept)
+        bb.rejected.connect(dlg.reject)
+        lay.addWidget(bb)
+        if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        default = self.path.with_suffix(".html").name if self.path else f"{cfg.name}.html"
+        out = self._save_dialog("Отчёт", "HTML (*.html)", default)
+        if out:
+            self.make_report(Path(out), [k for k, b in boxes.items() if b.isChecked()],
+                             with_calibration=cal.isChecked())  # fmt: skip
+
+    def make_report(self, out: Path, parts: list[str], with_calibration: bool = True,
+                    open_browser: bool = True) -> None:  # fmt: skip
+        cfg = self.cfg
+        if cfg is None:
+            return
+        have_res = self.results is not None and self.results_key == self._key(cfg)
+        kw: dict[str, Any] = {
+            "results": self.results if have_res else None,
+            "ensemble": self.ensemble if "ensemble" in parts else None,
+            "mechanics": self.mech if "mechanics" in parts else None,
+            "stability": self.surrogate if "stability" in parts else None,
+            "calibration": self.calib if with_calibration else None,
+            "data": getattr(self, "calib_fielddata", None) if with_calibration else None,
+        }
+        jobs = os.cpu_count() or 1
+
+        def job(report: Callable[[float, str], None]) -> Any:
+            from saltcav.report import make_report
+
+            return make_report(cfg, out, compute=parts, jobs=jobs, progress=report, **kw)
+
+        def done(path: Any) -> None:
+            self.statusBar().showMessage(f"отчёт: {path}", 10000)
+            if open_browser:
+                QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(path)))
+
+        self._start("Отчёт", job, done)
 
     # --- консоль и скрипты ------------------------------------------------------------
 

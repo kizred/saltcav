@@ -48,8 +48,8 @@ if TYPE_CHECKING:
     from saltcav.surrogate.study import StudyResult
 
 __all__ = [
-    "Table", "calibrate", "data", "ensemble", "get", "load", "mechanics", "plot", "run",
-    "save", "set", "stability", "sweep", "table",
+    "Table", "calibrate", "data", "ensemble", "get", "load", "mechanics", "plot", "report",
+    "run", "save", "set", "stability", "sweep", "table",
 ]  # fmt: skip
 
 Progress = Callable[[float, str], None]
@@ -271,6 +271,18 @@ def sweep(
     f = fn or run
     for v in values:
         yield v, f(set(c, {path: v}))
+
+
+def report(cfg: RunConfig | str | Path, out: str | Path = "report.html", **kwargs: Any) -> Path:
+    """Отчёт HTML в один файл (печать в PDF — из браузера). Готовые результаты —
+    ``results=``, ``ensemble=``, ``mechanics=``, ``stability=``, ``calibration=``,
+    ``data=``; недостающее досчитать — ``compute=("leaching", "ensemble", "mechanics",
+    "stability")``, ``n=``, ``jobs=``. См. :func:`saltcav.report.make_report`."""
+    from saltcav.report import make_report
+
+    if isinstance(kwargs.get("data"), str | Path):
+        kwargs["data"] = data(kwargs["data"])
+    return make_report(_cfg(cfg), out, **kwargs)
 
 
 # --- картинки и таблицы ----------------------------------------------------------------
