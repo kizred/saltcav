@@ -3,12 +3,12 @@
 import numpy as np
 import pytest
 
-pytest.importorskip("gmsh")
-
 from saltcav.mechanics.creep import CreepLaw, PowerBranch
 from saltcav.mechanics.fem import AxiFEM, elastic_matrix
 from saltcav.mechanics.solver import YEAR, MechanicsSetup, Stage, run_mechanics
 from saltcav.mesh.axisym import mesh_polygon
+
+pytest.importorskip("gmsh")
 
 pytestmark = pytest.mark.verification
 

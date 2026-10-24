@@ -66,8 +66,12 @@ def build_window(
     off_screen: bool = False,
     start: int | None = None,
     field: str = "radius",
+    embedded: bool = False,
 ) -> Any:
-    """Создать окно просмотрщика (QApplication должно существовать)."""
+    """Создать окно просмотрщика (QApplication должно существовать).
+
+    ``embedded`` — для вкладки главного окна: виджет без собственной рамки.
+    """
     QtCore, QtGui, QtWidgets = _qt()
     import matplotlib
 
@@ -84,7 +88,10 @@ def build_window(
             self.res = res
             self.source = source
             self.setWindowTitle(f"saltcav — {res.name}")
-            self.resize(1500, 920)
+            if embedded:
+                self.setWindowFlags(QtCore.Qt.WindowType.Widget)
+            if not embedded:
+                self.resize(1500, 920)
 
             # --- 3D ---------------------------------------------------------------
             self.vtk = QtInteractor(self, off_screen=off_screen)

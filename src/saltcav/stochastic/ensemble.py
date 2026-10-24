@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -206,9 +207,17 @@ def make_realization(
 
 
 def run_ensemble(
-    cfg: RunConfig, n: int | None = None, seed: int | None = None, jobs: int = 1
+    cfg: RunConfig,
+    n: int | None = None,
+    seed: int | None = None,
+    jobs: int = 1,
+    progress: Callable[[int, int], None] | None = None,
 ) -> EnsembleResult:
-    """Запустить ансамбль: n реализаций (по умолчанию из конфигурации), jobs процессов."""
+    """Запустить ансамбль: n реализаций (по умолчанию из конфигурации), jobs процессов.
+
+    ``progress(k, n)`` вызывается после каждой реализации; исключение в нём прерывает
+    расчёт (так окно отменяет ансамбль).
+    """
     n = cfg.ensemble.n_realizations if n is None else n
     seed = cfg.ensemble.seed if seed is None else seed
     if n < 1:
@@ -216,11 +225,23 @@ def run_ensemble(
     u = design(cfg, n, seed)
     tasks = [(cfg, seed, i, u[i]) for i in range(n)]
     jobs = max(1, min(jobs if jobs > 0 else (os.cpu_count() or 1), n))
+    outs: list[RealizationOutput] = []
     if jobs == 1:
-        outs = [_run_one(t) for t in tasks]
+        for t in tasks:
+            outs.append(_run_one(t))
+            if progress:
+                progress(len(outs), n)
     else:
         with ProcessPoolExecutor(max_workers=jobs) as pool:
-            outs = list(pool.map(_run_one, tasks, chunksize=max(1, n // (4 * jobs))))
+            chunk = max(1, min(n // (4 * jobs), 16))
+            try:
+                for o in pool.map(_run_one, tasks, chunksize=chunk):
+                    outs.append(o)
+                    if progress:
+                        progress(len(outs), n)
+            except BaseException:
+                pool.shutdown(wait=False, cancel_futures=True)
+                raise
 
     grid = CavernGrid.from_config(cfg.grid)
     hist0 = simulate(cfg)  # моменты записи (одинаковы для всех реализаций)

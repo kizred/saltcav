@@ -88,8 +88,16 @@ def _eq_strain(e: FloatArray) -> FloatArray:
     return np.asarray(np.sqrt(2.0 / 3.0 * np.einsum("...i,...i->...", d, d)))
 
 
-def run_mechanics(fem: AxiFEM, setup: MechanicsSetup) -> MechanicsResult:
-    """Выемка (упругий отклик) и ползучесть по ступеням давления."""
+def run_mechanics(
+    fem: AxiFEM,
+    setup: MechanicsSetup,
+    progress: Callable[[float], None] | None = None,
+) -> MechanicsResult:
+    """Выемка (упругий отклик) и ползучесть по ступеням давления.
+
+    ``progress(доля)`` вызывается после каждого шага; исключение в нём прерывает расчёт.
+    """
+    t_total = sum(s.duration_s for s in setup.stages)
     fem.fixed[:] = False
     for tag, comp in setup.supports:
         fem.fix(tag, comp)
@@ -158,6 +166,8 @@ def run_mechanics(fem: AxiFEM, setup: MechanicsSetup) -> MechanicsResult:
             zeta = np.maximum(zeta + (fac - 1.0) * ss * step, 0.0)
             t += step
             res.n_steps += 1
+            if progress:
+                progress(t / t_total)
 
             seq = von_mises(sig0 + dsig)
             mask = seq > 1e5

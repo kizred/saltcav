@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -25,14 +26,26 @@ def plot_envelope(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    fig = plt.figure(figsize=(10.5, 6.2), facecolor=SURFACE)
+    draw_envelope(fig, ens, title, layers)
+    fig.savefig(out, dpi=150, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def draw_envelope(
+    fig: Any,
+    ens: EnsembleResult,
+    title: str = "",
+    layers: list[tuple[float, float]] | None = None,
+) -> None:
+    """Нарисовать огибающие и сходимость на фигуре ``fig`` (для окна и для файла)."""
     q = ens.equivalent_radius_quantiles((0.1, 0.5, 0.9))
     z = ens.z_edges
     wide = np.nonzero(q[2] > 1.0)[0]
     z_lo, z_hi = (z[wide[0]] - 5, z[wide[-1]] + 5) if wide.size else (z[0], z[-1])
 
-    fig, (a1, a2) = plt.subplots(
-        1, 2, figsize=(10.5, 6.2), gridspec_kw={"width_ratios": [1.4, 1]}, facecolor=SURFACE
-    )
+    fig.clear()
+    a1, a2 = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.4, 1]})
     for ax in (a1, a2):
         ax.set_facecolor(SURFACE)
         ax.grid(color=GRID, lw=0.6)
@@ -66,5 +79,3 @@ def plot_envelope(
     fig.suptitle(title or f"Ансамбль: {ens.n} реализаций, seed {ens.seed}", x=0.06, ha="left",
                  color=INK, fontsize=13)  # fmt: skip
     fig.tight_layout(rect=(0, 0, 1, 0.94))
-    fig.savefig(out, dpi=150, facecolor=SURFACE)
-    plt.close(fig)
