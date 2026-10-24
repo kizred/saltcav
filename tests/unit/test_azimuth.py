@@ -40,7 +40,7 @@ def test_properties_from_config() -> None:
     j = int(np.argmax(p.k_mult[0]))
     assert np.degrees(g.phi_centers[j]) == pytest.approx(90.0, abs=360 / 8)
     with pytest.raises(ValueError):
-        WallProperties(np.zeros((2, 2)), np.zeros((2, 2)), 2160.0)
+        WallProperties(-np.ones((2, 2)), np.zeros((2, 2)), 2160.0)
 
 
 def test_homogeneous_3d_equals_axisymmetric(axi) -> None:  # type: ignore[no-untyped-def]

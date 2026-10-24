@@ -33,7 +33,13 @@ f_ins растворённой породы оседает на дно насы�
 схема с обратным течением между слоями. При ``plume: false`` — прежняя модель
 переноса от закачки к отбору с мгновенным перемешиванием.
 
-Ограничения этой версии: прослоев нет, турбулентная диффузия между слоями не
+Прослои (:mod:`saltcav.leaching.ledges`): ангидрит и глина не растворяются и
+остаются карнизами; карниз с вылетом больше критического обрушается в начале шага,
+обломки уходят в насыпь. Место карниза заполняет рассол с концентрацией слоя
+(накопленная соль — ``collapse_fill_salt``; баланс: растворено + заполнение =
+прирост в камере + вынесено).
+
+Ограничения этой версии: турбулентная диффузия между слоями не
 учитывается (её роль частично играет перемешивание неустойчивых слоёв).
 """
 
@@ -51,6 +57,7 @@ from saltcav.geometry import Cavern, CavernGrid
 from saltcav.leaching.brine_column import column_step, plume_transport_step, stabilize
 from saltcav.leaching.dissolution import DissolutionLaw, node_concentration, wall_growth_rate
 from saltcav.leaching.insolubles import first_buried_layer, floor_depth
+from saltcav.leaching.ledges import CollapseEvent, collapse_ledges, interlayers_from_config
 from saltcav.leaching.plume import plume_fluxes
 from saltcav.leaching.properties import WallProperties
 from saltcav.operations import Schedule
@@ -77,6 +84,8 @@ class History:
     n_steps: int = 0
     n_shoe_moves: int = 0  # шагов, где башмак пришлось поднять над насыпью
     plume_deposit_depth: list[float] = field(default_factory=list)  # по шагам, м
+    collapse_fill_salt: list[float] = field(default_factory=list)  # накоплено, кг
+    collapses: list[tuple[float, CollapseEvent]] = field(default_factory=list)  # (t, событие)
 
     def record(self, t: float, cav: Cavern, c: FloatArray, state: _State) -> None:
         self.times.append(t)
@@ -88,6 +97,7 @@ class History:
         self.salt_in_brine.append(state.salt_in_brine(cav, c))
         self.floor_depth.append(state.z_floor)
         self.insoluble_bulk.append(state.bulk)
+        self.collapse_fill_salt.append(state.fill)
 
     def cavern(self, i: int = -1) -> Cavern:
         return Cavern(self.grid, self.radius[i])
@@ -107,11 +117,23 @@ class _State:
     z_floor: float  # м, верх насыпи
     k_floor: int  # первый погребённый слой (nz — нет погребённых)
     trapped: float = 0.0  # кг соли в порах насыпи
+    fill: float = 0.0  # кг соли в рассоле, заполнившем место обрушенных карнизов
 
     def salt_in_brine(self, cav: Cavern, c: FloatArray) -> float:
         v = _layer_volumes(cav)
         k = self.k_floor
         return float(np.dot(v[:k], c[:k])) + self.trapped
+
+
+def _bury(st: _State, grid: CavernGrid, v: FloatArray, c: FloatArray, porosity: float) -> None:
+    """Пересчитать уровень насыпи; погребённые слои выходят из колонны рассола."""
+    st.z_floor = floor_depth(grid.z_edges, v, st.bulk)
+    kf_new = min(first_buried_layer(grid.z_centers, st.z_floor), st.k_floor)
+    for k in range(kf_new, st.k_floor):
+        salt_k = float(v[k] * c[k])
+        st.trapped += porosity * salt_k  # остаётся в порах
+        st.produced += (1.0 - porosity) * salt_k  # вытеснено твёрдым к отбору
+    st.k_floor = kf_new
 
 
 def simulate(cfg: RunConfig) -> History:
@@ -123,6 +145,7 @@ def simulate(cfg: RunConfig) -> History:
     c_sat = float(brine.saturation_concentration(lp.temperature_c))
     props = WallProperties.from_config(cfg.geology, grid)
     solid = props.solid_nodes
+    interlayers = interlayers_from_config(cfg.geology, grid)
 
     cav = Cavern.cylinder(grid, cfg.grid.r_borehole_m)
     c = np.full(grid.nz, lp.initial_saturation * c_sat)
@@ -142,6 +165,21 @@ def simulate(cfg: RunConfig) -> History:
     for stage in schedule.stages:
         kb = stage.k_blanket
         while t < stage.t_end - 1e-9:
+            # карнизы с вылетом больше критического обрушаются (прослои над насыпью)
+            live = [il for il in interlayers if il.i1 < st.k_floor]
+            if live:
+                r_new, events = collapse_ledges(cav.radius, live, grid.z_edges)
+                if events:
+                    v_before = _layer_volumes(cav)
+                    cav = cav.with_radius(r_new)
+                    v_after = _layer_volumes(cav)
+                    dv = v_after - v_before
+                    # место карниза занимает рассол слоя (с той же концентрацией)
+                    st.fill += float(np.dot(dv, c))
+                    st.bulk += geo.bulking_factor * float(dv.sum())  # обломки в насыпь
+                    _bury(st, grid, v_after, c, porosity)
+                    hist.collapses.extend((t, ev) for ev in events)
+
             kf = st.k_floor
             if kf <= kb + 1:
                 raise RuntimeError(
@@ -208,13 +246,7 @@ def simulate(cfg: RunConfig) -> History:
 
             # нерастворимые оседают; погребённые слои выходят из колонны
             st.bulk += geo.bulking_factor * props.insoluble_volume(dv_sec)
-            st.z_floor = floor_depth(grid.z_edges, v_new, st.bulk)
-            kf_new = min(first_buried_layer(grid.z_centers, st.z_floor), kf)
-            for k in range(kf_new, kf):
-                salt_k = float(v_new[k] * c[k])
-                st.trapped += porosity * salt_k  # остаётся в порах
-                st.produced += (1.0 - porosity) * salt_k  # вытеснено твёрдым к отбору
-            st.k_floor = kf_new
+            _bury(st, grid, v_new, c, porosity)
 
             t += dt
             hist.n_steps += 1
