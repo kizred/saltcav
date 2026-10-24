@@ -18,8 +18,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Системные библиотеки Gmsh
+        run: sudo apt-get update -q && sudo apt-get install -y -q libglu1-mesa libxcursor1 libxft2 libxinerama1
       - name: Установка
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev,mechanics]"
       - name: Ruff
         run: ruff check . && ruff format --check .
       - name: Mypy

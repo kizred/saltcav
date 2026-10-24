@@ -1,7 +1,7 @@
 """Командная строка: ``saltcav <команда>``.
 
-Сейчас доступны ``version``, ``schema``, ``check``, ``run``, ``view`` и ``ensemble``; команды
-``mechanics``, ``calibrate``, ``report`` появятся на своих этапах.
+Сейчас доступны ``version``, ``schema``, ``check``, ``run``, ``view``, ``ensemble`` и
+``mechanics``; команды ``calibrate``, ``report`` появятся на своих этапах.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from saltcav.core.config import RunConfig, load_config
 
 if TYPE_CHECKING:
     from saltcav.io.results import Results
+    from saltcav.mechanics.run import MechanicsRun
 
 
 def _cmd_check(args: argparse.Namespace) -> int:
@@ -164,6 +165,79 @@ def _cmd_view(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_mechanics(args: argparse.Namespace) -> int:
+    """Геомеханика по форме камеры: ползучесть и критерии устойчивости."""
+    src = Path(args.source)
+    try:
+        if src.suffix == ".npz" and _is_mechanics(src):
+            from saltcav.mechanics.run import MechanicsRun
+
+            run = MechanicsRun.load(src)
+        else:
+            run = _mechanics_from_source(src, args)
+    except (OSError, KeyError, ValidationError, ValueError, RuntimeError) as exc:
+        print(f"Ошибка в {src}:\n{exc}", file=sys.stderr)
+        return 1
+    s = run.summary
+    print(f"«{run.name}»: форма на {run.day:.0f} сут, {run.tri.shape[0]} элементов, ", end="")
+    print(f"{run.n_steps} шагов")
+    v_fem = f"{run.volume0:,.0f}".replace(",", " ")
+    v_leach = f"{run.leaching_volume:,.0f}".replace(",", " ")
+    print(f"  объём полости в МКЭ {v_fem} м³ (по выщелачиванию {v_leach})")
+    print("  годы   потеря V, %   %/год   мин. FOS у стенки   зона FOS<1, м³   σ_t−p, МПа")
+    marks = (int(np.argmin(np.abs(s.years - y))) for y in (1, 5, 10))
+    picks = sorted({0, *marks, len(s.years) - 1})
+    for k in picks:
+        print(
+            f"  {s.years[k]:5.1f}  {s.convergence_pct[k]:10.2f}"
+            f"  {s.convergence_rate_pct_yr[k]:7.3f}  {s.min_fos_wall[k]:17.2f}"
+            f"  {s.dilatant_volume_m3[k]:15.0f}  {s.tension_margin_mpa[k]:11.1f}"
+        )
+    if args.out:
+        run.save(args.out)
+        print(f"  результат: {args.out}")
+    if args.plot:
+        from saltcav.viz.mechanics_plot import plot_mechanics
+
+        idx = -1 if args.at_year is None else int(np.argmin(np.abs(s.years - args.at_year)))
+        plot_mechanics(run, args.plot, idx)
+        print(f"  картинка: {args.plot}")
+    return 0
+
+
+def _is_mechanics(path: Path) -> bool:
+    with np.load(path) as d:
+        return "kind" in d and str(d["kind"]) == "saltcav-mechanics"
+
+
+def _mechanics_from_source(src: Path, args: argparse.Namespace) -> MechanicsRun:
+    import yaml
+
+    from saltcav.core.config import MechanicsConfig, RunConfig
+    from saltcav.mechanics.run import run_from_shape
+
+    res = _load_source(src, args)
+    if args.config:
+        mc = load_config(args.config).mechanics
+    elif res.config_yaml:
+        mc = RunConfig.model_validate(yaml.safe_load(res.config_yaml)).mechanics
+    else:
+        mc = MechanicsConfig()
+    if args.years is not None:
+        if len(mc.stages) != 1:
+            raise ValueError("--years только для одной ступени давления; иначе задайте в YAML")
+        st = mc.stages[0].model_copy(update={"duration_years": args.years})
+        mc = mc.model_copy(update={"stages": [st]})
+    day = args.day if args.day is not None else mc.day
+    i = res.nt - 1 if day is None else res.frame_at(day)
+    t0 = time.perf_counter()
+    run = run_from_shape(
+        mc, res.z_edges, res.radius[i], res.name, float(res.days[i]), float(res.volume[i])
+    )
+    print(f"геомеханика: {time.perf_counter() - t0:.1f} с")
+    return run
+
+
 def _cmd_ensemble(args: argparse.Namespace) -> int:
     from saltcav.stochastic.ensemble import run_ensemble
 
@@ -253,6 +327,19 @@ def main(argv: list[str] | None = None) -> int:
     p_ens.add_argument("--radius-limit", type=float, help="порог для P(макс. радиус > порог)")
     p_ens.add_argument("--out", help="сохранить ансамбль в .npz")
     p_ens.add_argument("--plot", help="сохранить огибающие в .png")
+    p_mech = sub.add_parser("mechanics", help="геомеханика: ползучесть и устойчивость камеры")
+    p_mech.add_argument(
+        "source", help="результаты .npz из run --out, YAML (с прогоном) или .npz из mechanics"
+    )
+    p_mech.add_argument("--day", type=float, help="момент формы, сут (по умолчанию конец)")
+    p_mech.add_argument("--config", help="взять раздел mechanics из этого YAML")
+    p_mech.add_argument("--years", type=float, help="длительность (одна ступень давления), лет")
+    p_mech.add_argument("--out", help="сохранить результат .npz")
+    p_mech.add_argument("--plot", help="сохранить картинку .png")
+    p_mech.add_argument(
+        "--at-year", type=float, help="момент для картинки, лет (по умолчанию конец)"
+    )
+    _realization_args(p_mech)
     p_view = sub.add_parser("view", help="просмотр результатов по шагам (нужен .[gui])")
     p_view.add_argument("source", help="результаты .npz из run --out или YAML (с прогоном)")
     p_view.add_argument("--day", type=float, help="начальный момент, сут (по умолчанию — конец)")
@@ -280,6 +367,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_run(args)
     if args.command == "view":
         return _cmd_view(args)
+    if args.command == "mechanics":
+        return _cmd_mechanics(args)
     if args.command == "ensemble":
         return _cmd_ensemble(args)
     return 2  # pragma: no cover

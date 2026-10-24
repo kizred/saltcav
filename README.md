@@ -28,12 +28,7 @@ pre-commit install
 ```
 
 Дополнительные группы: `.[fast]` (Numba), `.[stochastic]`, `.[io]`, `.[viz]`, `.[gui]`
-(окно просмотра), `.[mechanics]`.
-FEniCSx (этап 6) ставится через conda-forge:
-
-```bash
-conda install -c conda-forge fenics-dolfinx mpich
-```
+(окно просмотра), `.[mechanics]` (Gmsh для сетки геомеханики; сам МКЭ — NumPy/SciPy).
 
 ## Проверка
 
@@ -47,6 +42,8 @@ saltcav view hist.npz --field rate --animation a.gif   # анимация без
 saltcav view hist.npz --paraview pv/series.pvd          # серия для ParaView
 saltcav ensemble configs/example_ensemble.yaml -n 200 --jobs 0 --plot env.png   # ансамбль
 saltcav view configs/example_ensemble.yaml --realization 14 -n 200   # реализация ансамбля
+saltcav mechanics configs/example_mechanics.yaml --out mech.npz --plot mech.png   # геомеханика
+saltcav mechanics hist.npz --years 30 --plot mech.png   # по сохранённой форме
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 
@@ -73,7 +70,7 @@ PyCharm и VS Code (с расширением YAML) тогда дописыва�
 | `src/saltcav/geometry` | R(z, φ), объём, нормали, углы ψ | 1 |
 | `src/saltcav/leaching`, `operations` | модель выщелачивания и режим | 2–4 |
 | `src/saltcav/stochastic` | случайные поля, ансамбли | 5 |
-| `src/saltcav/mesh`, `mechanics` | Gmsh, FEniCSx, ползучесть | 6 |
+| `src/saltcav/mesh`, `mechanics` | сетка Gmsh, осесимметричный МКЭ, ползучесть, критерии | 6 |
 | `src/saltcav/surrogate` | суррогат устойчивости | 7 |
 | `src/saltcav/io`, `calibration` | данные и калибровка | 8 |
 | `src/saltcav/viz`, `cli.py` | визуализация, командная строка | 9 |
