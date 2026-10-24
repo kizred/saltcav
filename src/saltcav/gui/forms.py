@@ -116,7 +116,7 @@ def tooltip(name: str, info: FieldInfo) -> str:
         lines.append(f"допустимо: {c}")
     if not info.is_required():
         d = default_of(info)
-        if not isinstance(d, (list, dict)):
+        if not isinstance(d, list | dict):
             lines.append(f"по умолчанию: {format_number(d) if d is not None else 'пусто'}")
     return "<br>".join(lines)
 
