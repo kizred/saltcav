@@ -74,7 +74,7 @@ def test_study_finds_probability(monkeypatch: pytest.MonkeyPatch) -> None:
     """Пайплайн на искусственной «механике»: запас — гладкая функция признаков;
     уточнение у границы даёт вероятность, близкую к точной."""
 
-    def fake(mc: Any, z: np.ndarray, radius: np.ndarray) -> np.ndarray:
+    def fake(mc: Any, z: np.ndarray, radius: np.ndarray, layers: Any = None) -> np.ndarray:
         f = dict(zip(FEATURES, shape_features(z, radius), strict=True))
         log_a = np.log(mc.creep[0].a_per_day / 0.18)
         fos = 1.6 - 0.04 * f["r_max"] - 0.4 * log_a

@@ -9,6 +9,9 @@
   Радиальное напряжение на стенке равно p_кам по граничному условию и в критерий
   не входит. В 3D — наименьшее главное напряжение в плоскости стенки.
 - **Конвергенция**: потеря объёма камеры, %/год.
+- **Прослои** (ангидрит, глина): критерии соли к ним не применяются; проверяется
+  отрыв — наибольшее растягивающее главное напряжение относительно прочности на
+  разрыв (> 1 — трещина, карниз может обрушиться).
 """
 
 from __future__ import annotations
@@ -152,6 +155,9 @@ class Summary:
     # устойчивые к одиночным углам: 5-й процентиль по стеновым элементам (по объёму)
     fos_wall_p5: FloatArray | None = None
     tension_margin_p5_mpa: FloatArray | None = None
+    # прослои: наибольшее растяжение (МПа, растяжение > 0) и его доля от прочности
+    layer_tension_mpa: FloatArray | None = None
+    layer_tension_ratio: FloatArray | None = None
 
 
 def summarize(
@@ -159,9 +165,20 @@ def summarize(
     res: MechanicsResult,
     cavity_pressure: list[PressureFn],
     coeff: float = 0.27,
+    strengths: list[float] | None = None,
 ) -> Summary:
-    """``cavity_pressure[k]`` — давление в камере на ступени k."""
+    """``cavity_pressure[k]`` — давление в камере на ступени k; ``strengths`` —
+    прочность на разрыв прослоев 1, 2, … (Па). Критерии соли — только по соли."""
     geo = element_geometry(fem)
+    mat = getattr(fem.mesh, "material", None)
+    salt = np.ones(geo.volume.size, dtype=bool) if mat is None else mat == 0
+    layer = ~salt
+    if mat is not None and layer.any():
+        st = np.asarray([np.inf, *(strengths or [])], dtype=float)
+        if st.size <= int(mat.max()):
+            st = np.r_[st, np.full(int(mat.max()) + 1 - st.size, np.inf)]
+        strength = st[mat[layer]]
+    geo.wall = geo.wall & salt
     cav_nodes = fem.mesh.boundary_nodes("cavity")
     years = np.asarray(res.times) / YEAR
     conv = 100.0 * res.convergence()
@@ -169,13 +186,19 @@ def summarize(
     for k in range(1, conv.size):  # скачок давления — нулевой интервал: скорость прежняя
         dy = years[k] - years[k - 1]
         rate[k] = (conv[k] - conv[k - 1]) / dy if dy > 1e-9 else rate[k - 1]
-    out: dict[str, list[float]] = {k: [] for k in ("fw", "f", "dv", "tm", "wd", "fw5", "tm5")}
+    out: dict[str, list[float]] = {
+        k: [] for k in ("fw", "f", "dv", "tm", "wd", "fw5", "tm5", "lt", "lr")
+    }
     wvol = geo.volume[geo.wall]
     for k, (sig, u) in enumerate(zip(res.stress, res.u, strict=True)):
-        fos = dilatancy_fos(sig, coeff)
+        fos = np.where(salt, dilatancy_fos(sig, coeff), 10.0)
         out["fw"].append(float(np.min(fos[geo.wall])) if geo.wall.any() else float("nan"))
         out["f"].append(float(np.min(fos)))
         out["dv"].append(float(geo.volume[fos < 1.0].sum()))
+        if layer.any():
+            tens = -principal_compressive(sig[layer])[:, -1]  # растяжение > 0
+            out["lt"].append(float(np.max(tens)) / MPA)
+            out["lr"].append(float(np.max(tens / strength)))
         p_cav = cavity_pressure[res.stage[k]](geo.centroid[:, -1])
         tm = (wall_tangential(sig, geo.wall_tangent) - p_cav)[geo.wall]
         out["tm"].append(float(np.min(tm)) / MPA if tm.size else float("nan"))
@@ -194,6 +217,8 @@ def summarize(
         max_wall_disp_m=np.array(out["wd"]),
         fos_wall_p5=np.array(out["fw5"]),
         tension_margin_p5_mpa=np.array(out["tm5"]),
+        layer_tension_mpa=np.array(out["lt"]) if layer.any() else None,
+        layer_tension_ratio=np.array(out["lr"]) if layer.any() else None,
     )
 
 

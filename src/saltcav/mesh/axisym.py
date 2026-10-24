@@ -9,6 +9,11 @@
 R_eq(z) = √(среднее по φ R²) — площадь каждого сечения сохраняется.
 
 Границы помечены: ``axis``, ``cavity``, ``outer``, ``top``, ``bottom``.
+
+Нерастворимые прослои (ангидрит, глина) — горизонтальные полосы от стенки камеры до
+внешней границы со своим номером материала (``AxiMesh.material``: 0 — соль). Сетка
+согласована по границам полос; у кромок карнизов (где полоса выходит на стенку) она
+сгущается до трети мощности прослоя, вдоль границ полос — до двух мощностей.
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ class AxiMesh:
     nodes: FloatArray  # (N, 2): r, y
     tri: IntArray  # (M, 6): вершины 0, 1, 2, середины рёбер 01, 12, 20
     edges: dict[str, IntArray] = field(default_factory=dict)  # (E, 3): концы, середина
+    material: IntArray | None = None  # (M,) номер материала: 0 — соль, k ≥ 1 — прослой
 
     @property
     def n_nodes(self) -> int:
@@ -88,6 +94,15 @@ def cavity_profiles(depth: FloatArray, r: FloatArray, r_min: float = 0.5) -> lis
         pts += [(0.0, depth[bot])] if bot > k1 else [(0.0, depth[k1])]
         out.append(np.array(pts))
     return out
+
+
+@dataclass(frozen=True)
+class Band:
+    """Горизонтальный прослой в сетке: глубины кровли и подошвы, номер материала ≥ 1."""
+
+    top: float
+    bottom: float
+    material: int
 
 
 @dataclass(frozen=True)
@@ -218,18 +233,147 @@ def mesh_polygon(
         gmsh.finalize()
 
 
-def _extract(gmsh: Any, by_tag: dict[str, list[int]]) -> AxiMesh:
+def _occ_polygon(occ: Any, pts: FloatArray) -> int:
+    keep = np.r_[True, np.any(np.abs(np.diff(pts, axis=0)) > 1e-9, axis=1)]
+    pts = pts[keep]
+    if np.allclose(pts[0], pts[-1]):
+        pts = pts[:-1]
+    p_ids = [occ.addPoint(float(x), float(y), 0.0) for x, y in pts]
+    n = len(p_ids)
+    lines = [occ.addLine(p_ids[i], p_ids[(i + 1) % n]) for i in range(n)]
+    return int(occ.addPlaneSurface([occ.addCurveLoop(lines)]))
+
+
+def mesh_with_layers(profiles: list[FloatArray], dom: DomainSpec, bands: list[Band]) -> AxiMesh:
+    """Сетка P2 с прослоями: OpenCASCADE, полосы — отдельные поверхности (материалы)."""
+    gmsh = _gmsh()
+    y_top, y_bot = -dom.depth_top, -dom.depth_bottom
+    gmsh.initialize(interruptible=False)
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("saltcav-layers")
+        occ = gmsh.model.occ
+        rect = occ.addRectangle(0.0, y_bot, 0.0, dom.r_out, y_top - y_bot)
+        cav = [(2, _occ_polygon(occ, np.c_[p[:, 0], -p[:, 1]])) for p in profiles]
+        body, _ = occ.cut([(2, rect)], cav, removeObject=True, removeTool=False)
+        pieces: list[tuple[list[tuple[int, int]], int]] = []
+        thick = []
+        for b in bands:
+            top, bot = max(b.top, dom.depth_top), min(b.bottom, dom.depth_bottom)
+            if bot - top < 1e-6:
+                continue
+            r = occ.addRectangle(0.0, -bot, 0.0, dom.r_out, bot - top)
+            cut, _ = occ.cut([(2, r)], cav, removeObject=True, removeTool=False)
+            if cut:
+                pieces.append((cut, b.material))
+                thick.append(bot - top)
+        occ.remove(cav, recursive=True)
+        tools = [dt for cut, _ in pieces for dt in cut]
+        out, out_map = occ.fragment(body, tools)
+        occ.synchronize()
+        surf_mat = {t: 0 for d, t in out if d == 2}
+        k = len(body)
+        for cut, mat in pieces:
+            for _ in cut:
+                for d, t in out_map[k]:
+                    if d == 2:
+                        surf_mat[t] = mat
+                k += 1
+        surfaces = [(2, t) for t in surf_mat]
+
+        eps = 1e-6 * max(dom.r_out, y_top - y_bot)
+        by_tag: dict[str, list[int]] = {t: [] for t in TAGS}
+        outer_curves = set()
+        for _, c in gmsh.model.getBoundary(surfaces, combined=True, oriented=False):
+            c = abs(c)
+            outer_curves.add(c)
+            x0, y0, _, x1, y1, _ = gmsh.model.getBoundingBox(1, c)
+            if x1 < eps:
+                by_tag["axis"].append(c)
+            elif x0 > dom.r_out - eps:
+                by_tag["outer"].append(c)
+            elif y0 > y_top - eps:
+                by_tag["top"].append(c)
+            elif y1 < y_bot + eps:
+                by_tag["bottom"].append(c)
+            else:
+                by_tag["cavity"].append(c)
+        layer_surf = [(2, t) for t, m in surf_mat.items() if m > 0]
+        iface = sorted(
+            {abs(c) for _, c in gmsh.model.getBoundary(layer_surf, combined=False, oriented=False)}
+            - outer_curves
+        )
+        tips = []
+        for _, pt in gmsh.model.getBoundary([(1, c) for c in iface], combined=False):
+            x, _, _ = gmsh.model.getValue(0, abs(pt), [])
+            if eps < x < dom.r_out - eps:
+                tips.append(abs(pt))
+        for t, ids in by_tag.items():
+            if ids:
+                gmsh.model.addPhysicalGroup(1, ids, name=t)
+        for m in sorted(set(surf_mat.values())):
+            ids = [t for t, mm in surf_mat.items() if mm == m]
+            gmsh.model.addPhysicalGroup(2, ids, name="salt" if m == 0 else f"layer{m}")
+
+        t_min = min(thick) if thick else dom.h_wall
+        mf = gmsh.model.mesh.field
+        fields = []
+
+        def threshold(kind: str, ids: list[int], size_min: float, reach: float) -> None:
+            if not ids:
+                return
+            fd = mf.add("Distance")
+            mf.setNumbers(fd, kind, ids)
+            if kind == "CurvesList":
+                mf.setNumber(fd, "Sampling", 200)
+            ft = mf.add("Threshold")
+            mf.setNumber(ft, "InField", fd)
+            mf.setNumber(ft, "SizeMin", size_min)
+            mf.setNumber(ft, "SizeMax", dom.h_far)
+            mf.setNumber(ft, "DistMin", 0.5 * size_min)
+            mf.setNumber(ft, "DistMax", reach)
+            fields.append(ft)
+
+        # стенка — как без прослоев; границы полос и кромки карнизов — мелко, но с
+        # быстрым ростом, чтобы не мельчить сетку вдоль всего прослоя
+        threshold("CurvesList", by_tag["cavity"], dom.h_wall, dom.grow_distance)
+        s_if = min(dom.h_far, max(dom.h_wall, 2.0 * t_min))
+        threshold("CurvesList", iface, s_if, 6.0 * s_if)
+        s_tip = min(dom.h_wall, max(t_min / 3.0, dom.h_wall / 4.0))
+        threshold("PointsList", sorted(set(tips)), s_tip, max(4.0 * dom.h_wall, 20.0 * s_tip))
+        f_min = mf.add("Min")
+        mf.setNumbers(f_min, "FieldsList", fields)
+        mf.setAsBackgroundMesh(f_min)
+        for opt in ("MeshSizeExtendFromBoundary", "MeshSizeFromPoints", "MeshSizeFromCurvature"):
+            gmsh.option.setNumber(f"Mesh.{opt}", 0)
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
+        gmsh.option.setNumber("Mesh.ElementOrder", 2)
+        gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)
+        gmsh.model.mesh.generate(2)
+        return _extract(gmsh, by_tag, surf_mat)
+    finally:
+        gmsh.finalize()
+
+
+def _extract(
+    gmsh: Any, by_tag: dict[str, list[int]], surf_mat: dict[int, int] | None = None
+) -> AxiMesh:
     tags, coords, _ = gmsh.model.mesh.getNodes()
     tags = np.asarray(tags, dtype=np.int64)
     xyz = np.asarray(coords, dtype=float).reshape(-1, 3)
     index = np.full(int(tags.max()) + 1, -1, dtype=np.int64)
     index[tags] = np.arange(tags.size)
-    _, el_tags, el_nodes = gmsh.model.mesh.getElements(2)
-    types, _, _ = gmsh.model.mesh.getElements(2)
-    tri_nodes = next(
-        np.asarray(nd, dtype=np.int64) for t, nd in zip(types, el_nodes, strict=True) if t == _TRI6
-    )
-    tri = index[tri_nodes.reshape(-1, 6)]
+    blocks, mats = [], []
+    surfaces = [(2, t) for t in surf_mat] if surf_mat is not None else [(2, -1)]
+    for _, s in surfaces:
+        types, _, el_nodes = gmsh.model.mesh.getElements(2, s)
+        for t, nd in zip(types, el_nodes, strict=True):
+            if t == _TRI6:
+                blk = np.asarray(nd, dtype=np.int64).reshape(-1, 6)
+                blocks.append(blk)
+                mats.append(np.full(blk.shape[0], 0 if surf_mat is None else surf_mat[s]))
+    tri = index[np.vstack(blocks)]
+    material = np.concatenate(mats).astype(np.int64) if surf_mat is not None else None
     edges: dict[str, IntArray] = {}
     for t, curves in by_tag.items():
         parts = []
@@ -239,11 +383,16 @@ def _extract(gmsh: Any, by_tag: dict[str, list[int]]) -> AxiMesh:
                 if ct == _LINE3:
                     parts.append(index[np.asarray(nd, dtype=np.int64).reshape(-1, 3)])
         edges[t] = np.vstack(parts) if parts else np.zeros((0, 3), dtype=np.int64)
-    del el_tags
     nodes = xyz[:, :2].copy()
     nodes[np.abs(nodes[:, 0]) < 1e-12, 0] = 0.0
     tri = _orient(nodes, tri)
-    return AxiMesh(nodes=nodes, tri=tri, edges=edges)
+    if surf_mat is not None:  # служебные узлы геометрии (не в элементах) — убрать
+        used = np.unique(tri)
+        remap = np.full(nodes.shape[0], -1, dtype=np.int64)
+        remap[used] = np.arange(used.size)
+        nodes, tri = nodes[used], remap[tri]
+        edges = {k: remap[v] for k, v in edges.items()}
+    return AxiMesh(nodes=nodes, tri=tri, edges=edges, material=material)
 
 
 def _orient(nodes: FloatArray, tri: IntArray) -> IntArray:
@@ -267,11 +416,15 @@ def cavern_mesh(
     height_factor: float = 3.0,
     r_out: float | None = None,
     r_min: float = 0.5,
+    bands: list[Band] | None = None,
 ) -> tuple[AxiMesh, DomainSpec]:
-    """Сетка массива вокруг камеры по R(z) или R(z, φ) (тогда — эквивалентный радиус)."""
+    """Сетка массива вокруг камеры по R(z) или R(z, φ) (тогда — эквивалентный радиус).
+    ``bands`` — прослои; без них — одна соль (геометрическое ядро Gmsh)."""
     r_eq = equivalent_radius(radius)
     profiles = cavity_profiles(depth, r_eq, r_min)
     dom = default_domain(profiles, h_wall, r_factor, height_factor, r_out)
+    if bands:
+        return mesh_with_layers(profiles, dom, bands), dom
     poly, tags = domain_polygon(profiles, dom)
     mesh = mesh_polygon(poly, tags, dom.h_wall, dom.h_far, dom.grow_distance)
     return mesh, dom

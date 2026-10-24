@@ -201,7 +201,7 @@ def test_surrogate_tab(win: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     pytest.importorskip("sklearn")
     from saltcav.surrogate import study
 
-    def fake(mc: Any, z: np.ndarray, radius: np.ndarray) -> np.ndarray:
+    def fake(mc: Any, z: np.ndarray, radius: np.ndarray, layers: Any = None) -> np.ndarray:
         rmax = float(np.max(radius))
         return np.array([1.6 - 0.03 * rmax, 1.5 - 0.03 * rmax, 3.0, 0.1])
 

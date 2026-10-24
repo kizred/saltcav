@@ -51,12 +51,14 @@ KEY = "fos_p5_min"
 Progress = Callable[[float, str], None]
 
 
-def mechanics_targets(mc: MechanicsConfig, z: FloatArray, radius: FloatArray) -> FloatArray:
+def mechanics_targets(
+    mc: MechanicsConfig, z: FloatArray, radius: FloatArray, layers: list[Any] | None = None
+) -> FloatArray:
     """Выходы механики для одной формы (в порядке TARGETS). Момент t = 0 (мгновенная
     выемка) не учитывается: в реальности камера растёт годами."""
     from saltcav.mechanics.run import run_from_shape
 
-    run = run_from_shape(mc, z, radius)
+    run = run_from_shape(mc, z, radius, layers=layers)
     s = run.summary
     p5 = s.fos_wall_p5 if s.fos_wall_p5 is not None else s.min_fos_wall
     tm5 = s.tension_margin_p5_mpa if s.tension_margin_p5_mpa is not None else s.tension_margin_mpa
@@ -70,7 +72,7 @@ def mechanics_targets(mc: MechanicsConfig, z: FloatArray, radius: FloatArray) ->
     )
 
 
-def _task(args: tuple[MechanicsConfig, FloatArray, FloatArray]) -> FloatArray:
+def _task(args: tuple[MechanicsConfig, FloatArray, FloatArray, list[Any] | None]) -> FloatArray:
     return mechanics_targets(*args)
 
 
@@ -219,9 +221,11 @@ class _Runner:
     сам использует все ядра)."""
 
     def __init__(
-        self, mc: MechanicsConfig, z: FloatArray, radii: FloatArray, params: FloatArray, jobs: int
-    ) -> None:
+        self, mc: MechanicsConfig, z: FloatArray, radii: FloatArray, params: FloatArray, jobs: int,
+        layers: list[list[Any]] | None = None,
+    ) -> None:  # fmt: skip
         self.mc, self.z, self.radii, self.params = mc, z, radii, params
+        self.layers = layers
         self.jobs = max(1, jobs if jobs > 0 else (os.cpu_count() or 1))
         self.done = 0
 
@@ -229,7 +233,11 @@ class _Runner:
         self, idx: IntArray, model: str, report: Callable[[int], None] | None = None
     ) -> FloatArray:
         mc = self.mc.model_copy(update={"model": model})
-        tasks = [(with_parameters(mc, self.params[i]), self.z, self.radii[i]) for i in idx]
+        tasks = [
+            (with_parameters(mc, self.params[i]), self.z, self.radii[i],
+             None if self.layers is None else self.layers[i])
+            for i in idx
+        ]  # fmt: skip
         out: list[FloatArray] = []
         if self.jobs == 1 or model == "3d" or len(tasks) == 1:
             for t in tasks:
@@ -265,15 +273,21 @@ def run_study(
     seed: int = 0,
     jobs: int = 0,
     progress: Progress | None = None,
+    layers: list[list[Any]] | None = None,
 ) -> StudyResult:
-    """Суррогат устойчивости по формам ансамбля ``radii`` (n, nz+1, nphi)."""
+    """Суррогат устойчивости по формам ансамбля ``radii`` (n, nz+1, nphi).
+
+    ``layers[i]`` — прослои реализации i (их отметки в ансамбле случайны); по умолчанию —
+    прослои конфигурации для всех."""
     sc, mc = cfg.surrogate, cfg.mechanics
     report = progress or (lambda f, t: None)
     n = np.asarray(radii).shape[0]
     params = mechanics_parameters(cfg, n, seed)
     x = np.hstack([feature_matrix(z_edges, radii), params])
     budget = min(n, sc.n_train + sc.adaptive) + min(sc.n_3d, n)
-    runner = _Runner(mc, np.asarray(z_edges), np.asarray(radii), params, jobs)
+    if layers is None:
+        layers = [list(cfg.geology.layers)] * n
+    runner = _Runner(mc, np.asarray(z_edges), np.asarray(radii), params, jobs, layers)
 
     def tick(stage: str) -> Callable[[int], None]:
         return lambda k: report(min(k / max(budget, 1), 1.0), f"{stage}: расчёт {k} из {budget}")

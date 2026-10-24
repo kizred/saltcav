@@ -191,6 +191,10 @@ def _cmd_mechanics(args: argparse.Namespace) -> int:
     v_fem = f"{run.volume0:,.0f}".replace(",", " ")
     v_leach = f"{run.leaching_volume:,.0f}".replace(",", " ")
     print(f"  объём полости в МКЭ {v_fem} м³ (по выщелачиванию {v_leach})")
+    if run.material is not None and run.material_names:
+        counts = np.bincount(run.material, minlength=len(run.material_names))
+        print("  материалы: " + ", ".join(
+            f"{n} — {c} эл." for n, c in zip(run.material_names, counts, strict=True)))  # fmt: skip
     head = ("годы", "потеря V, %", "%/год", "FOS у стенки: мин / 5 %", "зона FOS<1, м³")
     print("  " + "   ".join(head) + "   σ_t−p: мин / 5 %, МПа")
     marks = (int(np.argmin(np.abs(s.years - y))) for y in (1, 5, 10))
@@ -203,6 +207,12 @@ def _cmd_mechanics(args: argparse.Namespace) -> int:
             f"  {s.dilatant_volume_m3[k]:15.0f}"
             f"  {s.tension_margin_mpa[k]:10.1f} / {p5(s.tension_margin_p5_mpa, k):4.1f}"
         )
+    if s.layer_tension_ratio is not None and s.layer_tension_mpa is not None:
+        k = int(np.argmax(s.layer_tension_ratio))
+        verdict = "возможна трещина (отрыв)" if s.layer_tension_ratio[k] > 1 else "ниже прочности"
+        lt, lr = max(s.layer_tension_mpa[k], 0.0), s.layer_tension_ratio[k]
+        print(f"  прослои: наибольшее растяжение {lt:.1f} МПа = {lr:.2f} прочности "
+              f"на {s.years[k]:.1f} год — {verdict}")  # fmt: skip
     if args.out:
         run.save(args.out)
         print(f"  результат: {args.out}")
@@ -231,12 +241,19 @@ def _mechanics_from_source(src: Path, args: argparse.Namespace) -> MechanicsRun:
     from saltcav.mechanics.run import run_from_shape
 
     res = _load_source(src, args)
+    layers = None  # прослои — из конфигурации формы (у реализации — её отметки)
+    shape_cfg = (
+        RunConfig.model_validate(yaml.safe_load(res.config_yaml)) if res.config_yaml else None
+    )
     if args.config:
-        mc = load_config(args.config).mechanics
-    elif res.config_yaml:
-        mc = RunConfig.model_validate(yaml.safe_load(res.config_yaml)).mechanics
+        full = load_config(args.config)
+        mc, layers = full.mechanics, list(full.geology.layers)
+    elif shape_cfg is not None:
+        mc = shape_cfg.mechanics
     else:
         mc = MechanicsConfig()
+    if shape_cfg is not None:
+        layers = list(shape_cfg.geology.layers)
     if args.model:
         mc = mc.model_copy(update={"model": args.model})
     if args.years is not None:
@@ -256,7 +273,7 @@ def _mechanics_from_source(src: Path, args: argparse.Namespace) -> MechanicsRun:
 
     run = run_from_shape(
         mc, res.z_edges, res.radius[i], res.name, float(res.days[i]), float(res.volume[i]),
-        progress=progress if sys.stdout.isatty() or mc.model == "3d" else None,
+        progress=progress if sys.stdout.isatty() or mc.model == "3d" else None, layers=layers,
     )  # fmt: skip
     print(f"\rгеомеханика: {time.perf_counter() - t0:.1f} с" + " " * 40)
     return run
@@ -294,7 +311,10 @@ def _cmd_surrogate(args: argparse.Namespace) -> int:
         el = time.perf_counter() - t0
         print(f"\r  {text} ({el:.0f} с)" + " " * 10, end="", flush=True)
 
-    res = run_study(cfg, ens.z_edges, ens.radius, seed=ens.seed, jobs=args.jobs, progress=progress)
+    from saltcav.mechanics.run import ensemble_layers
+
+    res = run_study(cfg, ens.z_edges, ens.radius, seed=ens.seed, jobs=args.jobs, progress=progress,
+                    layers=ensemble_layers(cfg, ens))  # fmt: skip
     print(f"\rсуррогат: {res.train.size} расчётов механики"
           + (f" + {res.hf.size} в 3D" if res.hf.size else "")
           + f", {time.perf_counter() - t0:.0f} с" + " " * 30)  # fmt: skip

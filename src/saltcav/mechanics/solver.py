@@ -14,6 +14,12 @@
 установившейся ползучести напряжения почти не меняются, и шаг растёт до dt_max.
 
 Смена давления в камере между ступенями — упругий скачок.
+
+Прослои (``mesh.material`` ≥ 1) — свои упругие константы и доля скорости ползучести
+соли (0 — упругий материал): матрица упругости и касательная — по точкам. Выше предела
+(``limit_pa``, по Мизесу) прослой течёт: ε̇ = r₀·(σ/σ_пр)^10, r₀ = 1e-9 1/с — при
+скоростях деформации массива вокруг камеры (1e-11…1e-9 1/с) напряжение держится у
+предела (0,6–1,0 σ_пр), как у идеально пластичного материала, а схема остаётся той же.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from saltcav.mechanics.creep import CreepLaw, trace_vector, von_mises
+from saltcav.mechanics.creep import CreepLaw, PowerBranch, trace_vector, von_mises
 from saltcav.mechanics.fem import QW, AxiFEM, elastic_matrix
 
 FloatArray = NDArray[np.float64]
@@ -44,6 +50,27 @@ class Stage:
 
 
 @dataclass(frozen=True)
+class Material:
+    """Материал прослоя: упругость и доля скорости ползучести соли."""
+
+    e_modulus: float  # Па
+    nu: float
+    creep_factor: float = 0.0
+    name: str = ""
+    limit_pa: float | None = None  # предел текучести по Мизесу; None — без предела
+
+    def flow_law(self) -> CreepLaw | None:
+        if self.limit_pa is None:
+            return None
+        a = FLOW_RATE / (self.limit_pa / 1e6) ** FLOW_N
+        return CreepLaw((PowerBranch(a, FLOW_N, 0.0),), None)
+
+
+FLOW_RATE = 1e-9  # 1/с при напряжении, равном пределу
+FLOW_N = 10.0
+
+
+@dataclass(frozen=True)
 class MechanicsSetup:
     e_modulus: float  # Па
     nu: float
@@ -57,6 +84,7 @@ class MechanicsSetup:
     eta: float = 0.1  # целевое относительное изменение напряжения за шаг
     dt_first_s: float = 60.0
     dt_max_s: float = 0.25 * YEAR
+    materials: tuple[Material, ...] = ()  # материалы 1, 2, … (0 — соль)
 
 
 @dataclass
@@ -107,14 +135,31 @@ def run_mechanics(
     elif setup.outer != "free":
         raise ValueError(f"outer: free или roller, не {setup.outer!r}")
 
-    d = (
-        fem.elastic(setup.e_modulus, setup.nu)
-        if hasattr(fem, "elastic")
-        else elastic_matrix(setup.e_modulus, setup.nu)
-    )
-    mvec = trace_vector(d.shape[0])
+    def elastic(e: float, nu: float) -> FloatArray:
+        return np.asarray(fem.elastic(e, nu) if hasattr(fem, "elastic") else elastic_matrix(e, nu))
+
+    d = elastic(setup.e_modulus, setup.nu)
+    mvec = trace_vector(d.shape[-1])
     qw = getattr(fem, "qw", QW)
+    mat = getattr(fem.mesh, "material", None)
+    cfac: FloatArray | None = None  # доля ползучести соли по точкам
+    if mat is not None and np.any(mat > 0):
+        if int(mat.max()) > len(setup.materials):
+            raise ValueError("в сетке есть прослой без заданного материала")
+        nq = fem.yq.shape[1]
+        table = np.stack([d] + [elastic(m.e_modulus, m.nu) for m in setup.materials])
+        d = np.ascontiguousarray(np.broadcast_to(table[mat][:, None], (mat.size, nq, *d.shape)))
+        facs = np.array([1.0] + [m.creep_factor for m in setup.materials])
+        cfac = np.broadcast_to(facs[mat][:, None], (mat.size, nq))
+        flows = [
+            (mat == k + 1, law)
+            for k, m in enumerate(setup.materials)
+            if (law := m.flow_law()) is not None
+        ]
+    else:
+        flows = []
     d_inv = np.linalg.inv(d)
+    sub = "ij,eqj->eqi" if d.ndim == 2 else "eqij,eqj->eqi"
     k_el = fem.stiffness(d)
     sig0 = -setup.lithostatic(fem.yq)[..., None] * mvec
     t_k = setup.temperature_k(fem.yq)
@@ -126,10 +171,10 @@ def run_mechanics(
 
     res = MechanicsResult(volume0=fem.cavity_volume())
     shape_q = fem.yq.shape
-    eps_c = np.zeros((*shape_q, d.shape[0]))
+    eps_c = np.zeros((*shape_q, d.shape[-1]))
     zeta = np.zeros(shape_q)
     u = np.zeros(fem.ndof)
-    dsig = np.zeros((*shape_q, d.shape[0]))
+    dsig = np.zeros((*shape_q, d.shape[-1]))
     f_prev = np.zeros(fem.ndof)
 
     def record(t: float, i_stage: int) -> None:
@@ -149,7 +194,7 @@ def run_mechanics(
         du = fem.solve(k_el, f - f_prev)
         f_prev = f
         u += du
-        dsig += np.einsum("ij,eqj->eqi", d, fem.strain(du))
+        dsig += np.einsum(sub, d, fem.strain(du))
         if i_stage == 0:
             record(t, 0)
             next_out = setup.output_every_s
@@ -160,13 +205,20 @@ def run_mechanics(
             step = min(dt, t_end - t, next_out - t)
             sig = sig0 + dsig
             rate, tang, ss, fac = setup.law.evaluate(sig, t_k, zeta, step)
+            if cfac is not None:
+                rate = rate * cfac[..., None]
+                tang = tang * cfac[..., None, None]
+                for sel, law in flows:  # течение прослоя выше предела
+                    r_l, g_l, _, _ = law.evaluate(sig[sel], t_k[sel], zeta[sel], step)
+                    rate[sel] += r_l
+                    tang[sel] += g_l
             d_t = np.asarray(np.linalg.inv(d_inv + step * tang), dtype=np.float64)
             k_t = fem.stiffness(d_t)
             pre = np.einsum("eqij,eqj->eqi", d_t, step * rate)
             du = fem.solve(k_t, fem.internal(pre))
             de = fem.strain(du)
             ds = np.einsum("eqij,eqj->eqi", d_t, de) - pre
-            dec = de - np.einsum("ij,eqj->eqi", d_inv, ds)
+            dec = de - np.einsum(sub, d_inv, ds)
             u += du
             dsig += ds
             eps_c += dec
@@ -178,6 +230,11 @@ def run_mechanics(
 
             seq = von_mises(sig0 + dsig)
             mask = seq > 1e5
+            if cfac is not None:  # шаг — по ползущим зонам и прослоям в пределе
+                flowing = np.zeros_like(mask)
+                for sel, _ in flows:
+                    flowing[sel] = True
+                mask &= (cfac > 0) | flowing
             if np.any(mask):
                 eta = von_mises(ds)[mask] / seq[mask]
                 eta_p = float(np.percentile(eta, 99.5))
