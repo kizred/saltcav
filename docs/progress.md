@@ -50,6 +50,12 @@
 
 ## Журнал
 
+### 2026-10-24 — Подсказки для YAML в редакторе
+
+- `saltcav schema` → `schema/saltcav-config.schema.json`; описания у всех полей; примеры в
+  `configs/` ссылаются на схему (`# $schema:`). PyCharm: автодополнение, подсказки,
+  проверка до запуска. Препроцессор в окне — после этапа 6.
+
 ### 2026-10-24 — Просмотрщик результатов по шагам (PR #13)
 
 - Окно `saltcav view hist.npz` (PySide6-Essentials + pyvistaqt, `pip install -e ".[gui]"`, ≈ 85 МБ):

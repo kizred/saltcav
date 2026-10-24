@@ -1,3 +1,5 @@
+# $schema: ../schema/saltcav-config.schema.json
+# yaml-language-server: $schema=../schema/saltcav-config.schema.json
 # Пример ансамбля: камера с прослоями и неопределённостью геологии и режима.
 # Запуск: saltcav ensemble configs/example_ensemble.yaml -n 200 --jobs 0 --plot env.png
 # Значения разбросов иллюстративные — уточняются по данным компании (этап 8).

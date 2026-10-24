@@ -1,6 +1,6 @@
 """Командная строка: ``saltcav <команда>``.
 
-Сейчас доступны ``version``, ``check``, ``run``, ``view`` и ``ensemble``; команды
+Сейчас доступны ``version``, ``schema``, ``check``, ``run``, ``view`` и ``ensemble``; команды
 ``mechanics``, ``calibrate``, ``report`` появятся на своих этапах.
 """
 
@@ -66,6 +66,27 @@ def _load_source(src: Path, args: argparse.Namespace) -> Results:
     res, elapsed = _simulate_results(load_config(src), args)
     print(f"«{res.name}»: прогон {elapsed:.1f} с")
     return res
+
+
+SCHEMA_PATH = Path("schema") / "saltcav-config.schema.json"
+
+
+def _cmd_schema(args: argparse.Namespace) -> int:
+    """JSON Schema конфигурации для подсказок в PyCharm / VS Code."""
+    import json
+
+    from saltcav.core.config import config_schema
+
+    text = json.dumps(config_schema(), ensure_ascii=False, indent=2) + "\n"
+    if args.out == "-":
+        print(text, end="")
+        return 0
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    print(f"схема: {out}")
+    print("в начало YAML-файла: # $schema: <путь к схеме относительно файла>")
+    return 0
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -212,6 +233,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("version", help="версия пакета")
+    p_schema = sub.add_parser("schema", help="JSON Schema конфигурации (подсказки в редакторе)")
+    p_schema.add_argument(
+        "--out",
+        default=str(SCHEMA_PATH),
+        help=f"куда записать (по умолчанию {SCHEMA_PATH}; - — вывод)",
+    )
     p_check = sub.add_parser("check", help="проверить YAML-конфигурацию")
     p_check.add_argument("config", help="путь к YAML")
     p_run = sub.add_parser("run", help="детерминированный прогон одной камеры")
@@ -245,6 +272,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "version":
         print(__version__)
         return 0
+    if args.command == "schema":
+        return _cmd_schema(args)
     if args.command == "check":
         return _cmd_check(args)
     if args.command == "run":

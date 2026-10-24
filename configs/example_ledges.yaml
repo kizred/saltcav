@@ -1,3 +1,5 @@
+# $schema: ../schema/saltcav-config.schema.json
+# yaml-language-server: $schema=../schema/saltcav-config.schema.json
 # Пример с нерастворимыми прослоями: ангидрит 1 м на 1040 м, глина 0,5 м на 1075 м.
 # Карниз обрушивается при вылете ≥ 3 × мощность (ledge_span_ratio). Значения иллюстративные.
 name: example-ledges
