@@ -165,7 +165,7 @@ def run_mechanics(
         ]
     else:
         flows = []
-    d_inv = np.linalg.inv(d)
+    d_inv = np.asarray(np.linalg.inv(d), dtype=np.float64)
     k_el = fem.stiffness(d)
     sig0 = -setup.lithostatic(fem.yq)[..., None] * mvec
     t_k = setup.temperature_k(fem.yq)
