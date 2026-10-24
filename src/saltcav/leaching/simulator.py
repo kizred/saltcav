@@ -86,8 +86,24 @@ class History:
     plume_deposit_depth: list[float] = field(default_factory=list)  # по шагам, м
     collapse_fill_salt: list[float] = field(default_factory=list)  # накоплено, кг
     collapses: list[tuple[float, CollapseEvent]] = field(default_factory=list)  # (t, событие)
+    # для просмотра по шагам (в моменты записи)
+    wall_rate: list[FloatArray] = field(default_factory=list)  # (nz+1, nphi), м/с
+    outlet_concentration: list[float] = field(default_factory=list)  # кг/м³
+    shoe_in_depth: list[float] = field(default_factory=list)  # м, с учётом подъёма над насыпью
+    shoe_out_depth: list[float] = field(default_factory=list)  # м
+    blanket_depth: list[float] = field(default_factory=list)  # м
+    stage_index: list[int] = field(default_factory=list)
+    shoe_move_times: list[float] = field(default_factory=list)  # с, начало подъёма башмака
+    props: WallProperties | None = None
 
-    def record(self, t: float, cav: Cavern, c: FloatArray, state: _State) -> None:
+    def record(
+        self,
+        t: float,
+        cav: Cavern,
+        c: FloatArray,
+        state: _State,
+        ops: _Ops,
+    ) -> None:
         self.times.append(t)
         self.radius.append(np.array(cav.radius))
         self.concentration.append(np.array(c))
@@ -98,6 +114,13 @@ class History:
         self.floor_depth.append(state.z_floor)
         self.insoluble_bulk.append(state.bulk)
         self.collapse_fill_salt.append(state.fill)
+        self.wall_rate.append(np.array(ops.rate))
+        self.outlet_concentration.append(float(c[ops.k_out]))
+        z = self.grid.z_centers
+        self.shoe_in_depth.append(float(z[ops.k_in]))
+        self.shoe_out_depth.append(float(z[ops.k_out]))
+        self.blanket_depth.append(float(self.grid.z_edges[ops.k_blanket]))
+        self.stage_index.append(ops.stage)
 
     def cavern(self, i: int = -1) -> Cavern:
         return Cavern(self.grid, self.radius[i])
@@ -105,6 +128,17 @@ class History:
 
 def _layer_volumes(cav: Cavern) -> FloatArray:
     return np.asarray(cav.layer_volumes().sum(axis=1), dtype=np.float64)
+
+
+@dataclass
+class _Ops:
+    """Режим и скорость стенки на последнем шаге — для записи истории."""
+
+    rate: FloatArray  # (nz+1, nphi), м/с
+    k_in: int
+    k_out: int
+    k_blanket: int
+    stage: int
 
 
 @dataclass
@@ -157,8 +191,10 @@ def simulate(cfg: RunConfig, props: WallProperties | None = None) -> History:
     geo = cfg.geology
     porosity = 1.0 - 1.0 / geo.bulking_factor
     st = _State(0.0, 0.0, 0.0, float(grid.z_edges[-1]), grid.nz)
-    hist = History(grid)
-    hist.record(0.0, cav, c, st)
+    hist = History(grid, props=props)
+    s0 = schedule.stages[0]
+    ops = _Ops(np.zeros_like(cav.radius), s0.k_in, s0.k_out, s0.k_blanket, 0)
+    hist.record(0.0, cav, c, st, ops)
 
     dt_max = days_to_seconds(lp.dt_max_days)
     dt_out = days_to_seconds(lp.output_every_days)
@@ -167,7 +203,8 @@ def simulate(cfg: RunConfig, props: WallProperties | None = None) -> History:
     node_idx = np.arange(grid.nz + 1)
 
     t = 0.0
-    for stage in schedule.stages:
+    last_move = -np.inf
+    for i_stage, stage in enumerate(schedule.stages):
         kb = stage.k_blanket
         while t < stage.t_end - 1e-9:
             # карнизы с вылетом больше критического обрушаются (прослои над насыпью)
@@ -222,6 +259,9 @@ def simulate(cfg: RunConfig, props: WallProperties | None = None) -> History:
             # башмак в насыпи поднимается на первый слой над ней
             k_in, k_out = min(stage.k_in, kf - 1), min(stage.k_out, kf - 1)
             if (k_in, k_out) != (stage.k_in, stage.k_out):
+                if t - last_move > dt_out:
+                    hist.shoe_move_times.append(t)  # начало эпизода подъёма
+                last_move = t
                 hist.n_shoe_moves += 1
 
             # колонна рассола — слои между нерастворителем и насыпью
@@ -256,6 +296,6 @@ def simulate(cfg: RunConfig, props: WallProperties | None = None) -> History:
             t += dt
             hist.n_steps += 1
             if t >= next_out - 1e-9 or t >= schedule.total_duration - 1e-9:
-                hist.record(t, cav, c, st)
+                hist.record(t, cav, c, st, _Ops(rate, k_in, k_out, kb, i_stage))
                 next_out = t + dt_out
     return hist

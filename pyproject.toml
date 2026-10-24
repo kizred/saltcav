@@ -20,7 +20,9 @@ dependencies = [
 fast = ["numba>=0.59"]
 stochastic = ["gstools>=1.5", "SALib>=1.4", "joblib>=1.3"]
 io = ["xarray>=2024.1", "netCDF4>=1.6"]
-viz = ["matplotlib>=3.8", "pyvista>=0.43"]
+viz = ["matplotlib>=3.8", "pyvista>=0.43", "imageio>=2.31", "imageio-ffmpeg>=0.5"]
+# окно просмотра результатов по шагам (saltcav view)
+gui = ["saltcav[viz]", "PySide6>=6.6", "pyvistaqt>=0.11"]
 # FEniCSx ставится через conda-forge (см. README), здесь только Gmsh
 mechanics = ["gmsh>=4.12"]
 dev = [
@@ -53,8 +55,16 @@ plugins = ["pydantic.mypy"]
 files = ["src/saltcav"]
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "numba.*", "gstools.*", "SALib.*", "gmsh.*", "pyvista.*", "matplotlib.*"]
+module = [
+    "scipy.*", "numba.*", "gstools.*", "SALib.*", "gmsh.*", "pyvista.*", "matplotlib.*",
+    "PySide6.*", "pyvistaqt.*", "imageio.*",
+]
 ignore_missing_imports = true
+
+# Qt-обвязка окна: типы PySide6/pyvistaqt динамические; проверяется тестом окна
+[[tool.mypy.overrides]]
+module = ["saltcav.viz.viewer"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

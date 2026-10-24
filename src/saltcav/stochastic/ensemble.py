@@ -25,7 +25,12 @@ from saltcav.core.config import RunConfig
 from saltcav.core.rng import realization_rng
 from saltcav.geometry import Cavern, CavernGrid
 from saltcav.leaching.simulator import simulate
-from saltcav.stochastic.sampling import RealizationSampler, design, parameter_names
+from saltcav.stochastic.sampling import (
+    Realization,
+    RealizationSampler,
+    design,
+    parameter_names,
+)
 
 FloatArray = NDArray[np.float64]
 WIDE_M = 1.0  # радиус, начиная с которого узел считается частью камеры, а не ствола
@@ -183,6 +188,21 @@ class EnsembleResult:
             d["floor_depth_m"], d["produced_salt_kg"], d["dissolved_salt_kg"], d["collapses"],
             d["params"], [str(x) for x in d["param_names"]], int(d["seed"]),
         )  # fmt: skip
+
+
+def make_realization(
+    cfg: RunConfig, index: int, n: int | None = None, seed: int | None = None
+) -> Realization:
+    """Реализация ``index`` ансамбля (n, seed) — та же, что в :func:`run_ensemble`.
+
+    План LHS/Соболя зависит от n, поэтому n и seed должны совпадать с ансамблем.
+    """
+    n = cfg.ensemble.n_realizations if n is None else n
+    seed = cfg.ensemble.seed if seed is None else seed
+    if not 0 <= index < n:
+        raise ValueError(f"номер реализации {index} вне 0…{n - 1}")
+    u = design(cfg, n, seed)
+    return _sampler(cfg).realize(u[index], realization_rng(seed, index))
 
 
 def run_ensemble(
