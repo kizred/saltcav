@@ -1,6 +1,6 @@
 """Командная строка: ``saltcav <команда>``.
 
-Сейчас доступны ``version``, ``check`` и ``run``; команды ``ensemble``,
+Сейчас доступны ``version``, ``check``, ``run`` и ``view``; команды ``ensemble``,
 ``mechanics``, ``calibrate``, ``report`` появятся на своих этапах.
 """
 
@@ -75,6 +75,54 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_view(args: argparse.Namespace) -> int:
+    """3D-вид камеры из конфигурации (с прогоном) или сохранённой истории .npz."""
+    from saltcav.viz import render
+
+    src = Path(args.source)
+    try:
+        if src.suffix == ".npz":
+            data = np.load(src)
+            times_d = data["times_s"] / 86_400
+            z_edges, radius_all = data["z_edges_m"], data["radius_m"]
+            floors = data["floor_depth_m"] if "floor_depth_m" in data else None
+            name = src.stem
+        else:
+            from saltcav.leaching import simulate
+
+            cfg = load_config(src)
+            hist = simulate(cfg)
+            times_d = np.array(hist.times) / 86_400
+            z_edges, radius_all = hist.grid.z_edges, np.array(hist.radius)
+            floors = np.array(hist.floor_depth)
+            name = cfg.name
+    except (OSError, KeyError, ValidationError, ValueError) as exc:
+        print(f"Ошибка в {src}:\n{exc}", file=sys.stderr)
+        return 1
+    i = len(times_d) - 1 if args.day is None else int(np.argmin(np.abs(times_d - args.day)))
+    radius = radius_all[i]
+    floor = float(floors[i]) if floors is not None else None
+    vol = float(
+        np.sum(
+            np.pi
+            / 3
+            * np.diff(z_edges)[:, None]
+            * (radius[:-1] ** 2 + radius[:-1] * radius[1:] + radius[1:] ** 2)
+        )
+        / radius.shape[1]
+    )
+    title = f"{name}: {times_d[i]:.0f} сут, V = {vol:.0f} м³"
+    try:
+        render(z_edges, radius, floor, title, screenshot=args.screenshot, vtk=args.vtk)
+    except RuntimeError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    for label, path in (("скриншот", args.screenshot), ("VTK", args.vtk)):
+        if path:
+            print(f"{label}: {path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -84,6 +132,11 @@ def main(argv: list[str] | None = None) -> int:
     p_run = sub.add_parser("run", help="детерминированный прогон одной камеры")
     p_run.add_argument("config", help="путь к YAML")
     p_run.add_argument("--out", help="сохранить историю в .npz")
+    p_view = sub.add_parser("view", help="3D-вид камеры (нужен PyVista)")
+    p_view.add_argument("source", help="YAML-конфигурация или история .npz из run --out")
+    p_view.add_argument("--day", type=float, help="момент, сут (по умолчанию — последний)")
+    p_view.add_argument("--screenshot", help="сохранить картинку .png вместо окна")
+    p_view.add_argument("--vtk", help="сохранить поверхность в .vtk для ParaView")
 
     args = parser.parse_args(argv)
     if args.command == "version":
@@ -93,6 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_check(args)
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "view":
+        return _cmd_view(args)
     return 2  # pragma: no cover
 
 

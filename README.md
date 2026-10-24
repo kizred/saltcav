@@ -40,6 +40,7 @@ conda install -c conda-forge fenics-dolfinx mpich
 pytest                       # все быстрые тесты
 saltcav check configs/example.yaml
 saltcav run configs/example.yaml   # прогон одной камеры
+saltcav view configs/example_3d.yaml   # 3D-вид камеры (нужен .[viz])
 python benchmarks/sansmic/compare.py   # сверка с SANSMIC
 ```
 

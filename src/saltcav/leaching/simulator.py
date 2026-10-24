@@ -52,6 +52,7 @@ from saltcav.leaching.brine_column import column_step, plume_transport_step, sta
 from saltcav.leaching.dissolution import DissolutionLaw, node_concentration, wall_growth_rate
 from saltcav.leaching.insolubles import first_buried_layer, floor_depth
 from saltcav.leaching.plume import plume_fluxes
+from saltcav.leaching.properties import WallProperties
 from saltcav.operations import Schedule
 
 FloatArray = NDArray[np.float64]
@@ -120,7 +121,8 @@ def simulate(cfg: RunConfig) -> History:
     lp = cfg.leaching
     law = DissolutionLaw(lp.k0_m_per_s, lp.exponent, lp.roof_ratio, lp.floor_ratio)
     c_sat = float(brine.saturation_concentration(lp.temperature_c))
-    solid = cfg.geology.salt_density_kg_m3 * (1.0 - cfg.geology.insoluble_fraction)
+    props = WallProperties.from_config(cfg.geology, grid)
+    solid = props.solid_nodes
 
     cav = Cavern.cylinder(grid, cfg.grid.r_borehole_m)
     c = np.full(grid.nz, lp.initial_saturation * c_sat)
@@ -148,8 +150,9 @@ def simulate(cfg: RunConfig) -> History:
             # растворяются узлы строго между нерастворителем (узел kb) и насыпью (узел kf)
             active = (node_idx > kb) & (node_idx < kf)
             rate, v_max = wall_growth_rate(
-                cav.radius, grid.dz, node_concentration(c), c_sat, law, solid, active
-            )
+                cav.radius, grid.dz, node_concentration(c), c_sat, law, solid, active,
+                props.k_mult,
+            )  # fmt: skip
             dt = min(dt_max, stage.t_end - t, next_out - t)
             if v_max > 0:
                 dt = min(dt, lp.cfl * dz_min / v_max)
@@ -159,7 +162,8 @@ def simulate(cfg: RunConfig) -> History:
             while True:
                 new_cav = cav.with_radius(cav.radius + dt * rate)
                 v_new = _layer_volumes(new_cav)
-                dm = solid * (v_new - v_old)
+                dv_sec = new_cav.layer_volumes() - cav.layer_volumes()
+                dm = props.dissolved_salt(dv_sec)
                 growth = float(v_new.sum() - v_old.sum())
                 # 1) отбор не становится отрицательным; 2) явный шаг не растворяет больше,
                 # чем может принять рассол, бывший в слое до шага: прирост объёма
@@ -203,7 +207,7 @@ def simulate(cfg: RunConfig) -> History:
             st.dissolved += float(dm.sum())
 
             # нерастворимые оседают; погребённые слои выходят из колонны
-            st.bulk += geo.bulking_factor * geo.insoluble_fraction * growth
+            st.bulk += geo.bulking_factor * props.insoluble_volume(dv_sec)
             st.z_floor = floor_depth(grid.z_edges, v_new, st.bulk)
             kf_new = min(first_buried_layer(grid.z_centers, st.z_floor), kf)
             for k in range(kf_new, kf):
