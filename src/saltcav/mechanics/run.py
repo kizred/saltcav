@@ -110,10 +110,16 @@ class LayerModel:
         return ["соль", *(m.name for m in self.materials)]
 
 
-def layer_model(mc: MechanicsConfig, layers: Sequence[LayerConfig] | None) -> LayerModel:
-    """Нерастворимые прослои → полосы и материалы (по породе: один материал на породу)."""
+def layer_model(
+    mc: MechanicsConfig, layers: Sequence[LayerConfig] | None, r_cavity: float | None = None
+) -> LayerModel:
+    """Нерастворимые прослои → полосы и материалы (по породе: один материал на породу).
+    ``r_cavity`` — наибольший радиус камеры: прослой в сетке — до
+    ``mc.layer_extent_factor`` × r_cavity."""
     if not mc.interlayers or not layers:
         return LayerModel()
+    f = mc.layer_extent_factor
+    extent = None if f is None or r_cavity is None else f * r_cavity
     props = {m.kind: m for m in mc.layer_materials}
     index: dict[str, int] = {}
     mats: list[Material] = []
@@ -136,7 +142,7 @@ def layer_model(mc: MechanicsConfig, layers: Sequence[LayerConfig] | None) -> La
             )
             strengths.append(p.tensile_strength_mpa * 1e6)
             index[kind] = len(mats)
-        bands.append(Band(ly.top_m, ly.top_m + ly.thickness_m, index[kind]))
+        bands.append(Band(ly.top_m, ly.top_m + ly.thickness_m, index[kind], extent))
     return LayerModel(bands, tuple(mats), strengths)
 
 
@@ -289,7 +295,7 @@ def run_from_shape(
 
     ``layers`` — нерастворимые прослои (обычно ``cfg.geology.layers``): отдельный
     материал по ``mc.layer_materials``; без них массив — одна соль."""
-    lm = layer_model(mc, layers)
+    lm = layer_model(mc, layers, float(np.max(radius)))
     fem: Any
     if mc.model == "3d":
         from saltcav.mechanics.fem3d import FEM3D

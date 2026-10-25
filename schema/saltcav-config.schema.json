@@ -584,6 +584,20 @@
           "title": "Interlayers",
           "type": "boolean"
         },
+        "layer_extent_factor": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 3.0,
+          "description": "Прослой в сетке — до радиуса k × наибольший радиус камеры, дальше — соль (влияние на результат < 1 %, сетка в разы меньше); пусто — до внешней границы",
+          "title": "Layer Extent Factor"
+        },
         "layer_materials": {
           "description": "Свойства прослоев по породе (ангидрит, глина)",
           "items": {
@@ -1096,6 +1110,7 @@
         "h_wall_3d_m": 3.0,
         "h_wall_m": 1.0,
         "interlayers": true,
+        "layer_extent_factor": 3.0,
         "layer_materials": [
           {
             "compressive_strength_mpa": 80.0,

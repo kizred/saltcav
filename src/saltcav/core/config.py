@@ -361,6 +361,15 @@ class MechanicsConfig(_Strict):
         default=True,
         description="Прослои из раздела «Геология» — отдельным материалом (иначе всё — соль)",
     )
+    layer_extent_factor: Annotated[
+        float | None,
+        Field(
+            gt=1,
+            description="Прослой в сетке — до радиуса k × наибольший радиус камеры, "
+            "дальше — соль (влияние на результат < 1 %, сетка в разы меньше); пусто — до "
+            "внешней границы",
+        ),
+    ] = 3.0
     layer_materials: list[LayerMaterialConfig] = Field(
         default_factory=_default_layer_materials,
         description="Свойства прослоев по породе (ангидрит, глина)",

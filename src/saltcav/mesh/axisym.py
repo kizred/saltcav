@@ -103,6 +103,7 @@ class Band:
     top: float
     bottom: float
     material: int
+    extent: float | None = None  # радиус, до которого прослой в сетке; None — до границы
 
 
 @dataclass(frozen=True)
@@ -262,7 +263,8 @@ def mesh_with_layers(profiles: list[FloatArray], dom: DomainSpec, bands: list[Ba
             top, bot = max(b.top, dom.depth_top), min(b.bottom, dom.depth_bottom)
             if bot - top < 1e-6:
                 continue
-            r = occ.addRectangle(0.0, -bot, 0.0, dom.r_out, bot - top)
+            width = dom.r_out if b.extent is None else min(dom.r_out, b.extent)
+            r = occ.addRectangle(0.0, -bot, 0.0, width, bot - top)
             cut, _ = occ.cut([(2, r)], cav, removeObject=True, removeTool=False)
             if cut:
                 pieces.append((cut, b.material))
@@ -303,11 +305,11 @@ def mesh_with_layers(profiles: list[FloatArray], dom: DomainSpec, bands: list[Ba
             {abs(c) for _, c in gmsh.model.getBoundary(layer_surf, combined=False, oriented=False)}
             - outer_curves
         )
-        tips = []
-        for _, pt in gmsh.model.getBoundary([(1, c) for c in iface], combined=False):
-            x, _, _ = gmsh.model.getValue(0, abs(pt), [])
-            if eps < x < dom.r_out - eps:
-                tips.append(abs(pt))
+        # кромки карнизов — точки, где граница прослоя выходит на стенку камеры
+        cav_pts = {abs(p) for _, p in gmsh.model.getBoundary([(1, c) for c in by_tag["cavity"]],
+                                                             combined=False)}  # fmt: skip
+        tips = [abs(pt) for _, pt in gmsh.model.getBoundary([(1, c) for c in iface], combined=False)
+                if abs(pt) in cav_pts]  # fmt: skip
         for t, ids in by_tag.items():
             if ids:
                 gmsh.model.addPhysicalGroup(1, ids, name=t)

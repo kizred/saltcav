@@ -155,7 +155,8 @@ def cavern_mesh_3d(
             top, bot = max(b.top, dom.depth_top), min(b.bottom, dom.depth_bottom)
             if bot - top < 1e-6:
                 continue
-            s = occ.addCylinder(0, 0, -bot, 0, 0, bot - top, ro)
+            rad = ro if getattr(b, "extent", None) is None else min(ro, b.extent)
+            s = occ.addCylinder(0, 0, -bot, 0, 0, bot - top, rad)
             cut, _ = occ.cut([(3, s)], solids, removeTool=False)
             if cut:
                 slabs.append((cut, b.material))
@@ -221,18 +222,26 @@ def cavern_mesh_3d(
             iface = sorted(
                 {abs(s) for _, s in gmsh.model.getBoundary(layer_vols, oriented=False)} - outer_surf
             )
-            tips = []
-            for _, c in gmsh.model.getBoundary([(2, s) for s in iface], combined=False,
-                                               oriented=False):  # fmt: skip
-                x0, y0, _, x1, y1, _ = gmsh.model.getBoundingBox(1, abs(c))
-                if max(abs(x0), abs(x1), abs(y0), abs(y1)) < 0.6 * ro:
-                    tips.append(abs(c))
+            # кромки карнизов — линии, где граница прослоя выходит на стенку камеры
+            cav_curves = {abs(c) for _, c in gmsh.model.getBoundary(
+                [(2, s) for s in tags["cavity"]], combined=False, oriented=False)}  # fmt: skip
+            tips = [abs(c) for _, c in gmsh.model.getBoundary(
+                [(2, s) for s in iface], combined=False, oriented=False)
+                if abs(c) in cav_curves]  # fmt: skip
+            # кромки карнизов — мельче (но не мельче h/2: тетраэдров ∝ 1/h³); вдоль границ
+            # прослоя размер ограничен 6 мощностями (элементы не площе 1:6), а вблизи
+            # камеры его и так задаёт стенка — мелкой сетки по всему диску прослоя нет
             t_min = min(thick)
-            # в 3D мельче h/2 у кромок не дробим: число тетраэдров растёт как 1/h³
-            s_if = min(dom.h_far, max(h_wall, 2.0 * t_min))
-            threshold("SurfacesList", iface, s_if, 4.0 * s_if)
             s_tip = min(h_wall, max(t_min / 2, h_wall / 2))
             threshold("CurvesList", sorted(set(tips)), s_tip, 3.0 * h_wall)
+            mat_t: dict[int, float] = {}
+            for (_, mat), t in zip(slabs, thick, strict=True):
+                mat_t[mat] = min(mat_t.get(mat, t), t)
+            for mat, t in mat_t.items():
+                vols = [(3, v) for v, m in vol_mat.items() if m == mat]
+                own = {abs(s) for _, s in gmsh.model.getBoundary(vols, oriented=False)}
+                faces = sorted(own & set(iface))
+                threshold("SurfacesList", faces, min(dom.h_far, 6.0 * t), 24.0 * t)
         f_min = mf.add("Min")
         mf.setNumbers(f_min, "FieldsList", fields)
         mf.setAsBackgroundMesh(f_min)

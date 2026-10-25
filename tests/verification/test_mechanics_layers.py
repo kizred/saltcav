@@ -131,3 +131,18 @@ def test_3d_matches_axisym_with_layer() -> None:
     np.testing.assert_allclose(d3.convergence_pct[1:], ax.convergence_pct[1:], rtol=0.04)
     assert d3.fos_wall_p5 is not None and ax.fos_wall_p5 is not None
     np.testing.assert_allclose(d3.fos_wall_p5, ax.fos_wall_p5, rtol=0.1)
+
+
+def test_layer_extent_truncates_mesh() -> None:
+    """Прослой в сетке — до k × R камеры: элементов меньше, результат почти тот же."""
+    full, _ = cavern_mesh(Z, R, h_wall=1.0, bands=[Band(1020.0, 1021.0, 1)])
+    cut, _ = cavern_mesh(Z, R, h_wall=1.0, bands=[Band(1020.0, 1021.0, 1, extent=36.0)])
+    assert cut.n_elements < full.n_elements
+    assert cut.material is not None
+    r_layer = cut.nodes[cut.tri[cut.material == 1, :3]].mean(axis=1)[:, 0]
+    assert r_layer.max() < 36.0
+    a = run_from_shape(MechanicsConfig(**BASE, layer_extent_factor=None), Z, R, layers=LAYER)
+    b = run_from_shape(MechanicsConfig(**BASE), Z, R, layers=LAYER)  # по умолчанию 3 × R
+    np.testing.assert_allclose(b.summary.convergence_pct[1:], a.summary.convergence_pct[1:],
+                               rtol=0.02)  # fmt: skip
+    assert b.tri.shape[0] < a.tri.shape[0]
