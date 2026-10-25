@@ -194,6 +194,10 @@ def _require(rows: list[dict[str, str]], cols: tuple[str, ...], path: Path) -> N
         raise ValueError(f"{path.name}: нет столбцов {', '.join(missing)}")
 
 
+def _rows(path: Path) -> list[dict[str, str]]:
+    return read_table(path) if path.exists() else []
+
+
 def load_field_data(folder: str | Path) -> FieldData:
     """Прочитать папку набора данных (обязателен хотя бы один из файлов)."""
     folder = Path(folder)
@@ -209,15 +213,15 @@ def load_field_data(folder: str | Path) -> FieldData:
     found = False
 
     p = folder / "operations.csv"
-    if p.exists():
-        rows = read_table(p)
+    rows = _rows(p)
+    if rows:  # нет файла или только заголовок (шаблон) — нет данных
         _require(rows, OPERATIONS_COLUMNS, p)
         data.operations = [{k: r[k] for k in OPERATIONS_COLUMNS} for r in rows]
         found = True
 
     p = folder / "brine.csv"
-    if p.exists():
-        rows = read_table(p)
+    rows = _rows(p)
+    if rows:  # нет файла или только заголовок (шаблон) — нет данных
         _require(rows, ("day",), p)
         data.brine_day = _num(rows, "day", p)
         if "concentration_kg_m3" in rows[0]:
@@ -236,8 +240,8 @@ def load_field_data(folder: str | Path) -> FieldData:
         found = True
 
     p = folder / "sonar.csv"
-    if p.exists():
-        rows = read_table(p)
+    rows = _rows(p)
+    if rows:  # нет файла или только заголовок (шаблон) — нет данных
         _require(rows, ("day", "depth_m", "radius_m"), p)
         day = _num(rows, "day", p)
         depth = _num(rows, "depth_m", p)
@@ -252,8 +256,8 @@ def load_field_data(folder: str | Path) -> FieldData:
         found = True
 
     p = folder / "layers.csv"
-    if p.exists():
-        rows = read_table(p)
+    rows = _rows(p)
+    if rows:  # нет файла или только заголовок (шаблон) — нет данных
         _require(rows, ("kind", "top_m", "thickness_m"), p)
         data.layers = [
             {"kind": r["kind"], "top_m": float(r["top_m"]), "thickness_m": float(r["thickness_m"])}
@@ -262,7 +266,8 @@ def load_field_data(folder: str | Path) -> FieldData:
         found = True
 
     if not found:
-        raise ValueError(f"{folder}: нет ни одного файла данных (operations, brine, sonar, layers)")
+        raise ValueError(f"{folder}: нет данных — файлы operations, brine, sonar, layers "
+                         "отсутствуют или содержат только заголовки")  # fmt: skip
     return data
 
 
@@ -341,3 +346,74 @@ def _is_number(v: Any) -> bool:
     except (TypeError, ValueError):
         return False
     return True
+
+
+# --- шаблон для своей скважины -----------------------------------------------------------
+
+TEMPLATE_README = """Данные скважины для saltcav — шаблон
+=====================================
+
+Заполните таблицы в Excel и сохраните как «CSV (разделители — точки с запятой)».
+Первая строка (заголовки) — не меняйте; лишние столбцы можно добавлять (комментарии).
+Таблицу без данных можно оставить с одними заголовками или удалить.
+Время — сутки от начала выщелачивания; глубины — м от поверхности.
+
+operations.csv — режим по ступеням (без разрывов)
+  day_start, day_end      начало и конец ступени, сут
+  mode                    direct — прямоток, reverse — противоток
+  rate_m3_per_h           расход закачки пресной воды, м³/ч
+  injection_depth_m       башмак колонны закачки, м
+  production_depth_m      башмак колонны отбора, м
+  blanket_depth_m         уровень нерастворителя, м
+
+brine.csv — рассол на выходе
+  day                     сутки замера
+  concentration_kg_m3     концентрация NaCl, кг/м³  (или столбец density_kg_m3 — плотность)
+  sigma_kg_m3             погрешность замера, кг/м³ (можно не заполнять)
+
+sonar.csv — сонарные съёмки, одна точка в строке
+  day                     сутки съёмки
+  depth_m                 глубина точки, м
+  azimuth_deg             азимут, ° (пусто — съёмка без азимута)
+  radius_m                расстояние от оси скважины до стенки, м
+
+layers.csv — нерастворимые прослои (по ГИС)
+  kind                    anhydrite — ангидрит, clay — глина
+  top_m, thickness_m      кровля и мощность, м
+
+well.yaml — название скважины и температура рассола (°C)
+
+Проверка: в программе «Калибровка» → «Данные…» → эта папка (замечания появятся сразу)
+или в командной строке: saltcav data <папка>.
+Подробно — docs/data-format.md; образец — data/demo/well-1.
+"""
+
+
+def write_template(folder: str | Path, cfg: RunConfig | None = None, name: str = "") -> Path:
+    """Папка-шаблон данных скважины: таблицы с заголовками для Excel («;», запятая),
+    режим и прослои — из конфигурации ``cfg`` (если задана), остальное — пустое."""
+    folder = Path(folder)
+    if folder.exists() and any(folder.iterdir()):
+        raise ValueError(f"{folder}: папка не пуста — выберите новую")
+    folder.mkdir(parents=True, exist_ok=True)
+    ops: list[list[Any]] = []
+    lay: list[list[Any]] = []
+    if cfg is not None:
+        t = 0.0
+        for st in cfg.schedule.stages:
+            ops.append([f"{t:g}", f"{t + st.duration_days:g}", st.mode.value,
+                        st.rate_m3_per_h, st.injection_depth_m, st.production_depth_m,
+                        st.blanket_depth_m])  # fmt: skip
+            t += st.duration_days
+        lay = [[ly.kind.value, ly.top_m, ly.thickness_m] for ly in cfg.geology.layers]
+    _write(folder / "operations.csv", list(OPERATIONS_COLUMNS), ops, excel=True)
+    _write(folder / "brine.csv", ["day", "concentration_kg_m3", "sigma_kg_m3"], [], excel=True)
+    _write(folder / "sonar.csv", ["day", "depth_m", "azimuth_deg", "radius_m"], [], excel=True)
+    _write(folder / "layers.csv", ["kind", "top_m", "thickness_m"], lay, excel=True)
+    meta = {"name": name or folder.name,
+            "temperature_c": cfg.leaching.temperature_c if cfg is not None else 30.0,
+            "notes": "откуда данные, какие замеры исключены и почему"}  # fmt: skip
+    (folder / "well.yaml").write_text(yaml.safe_dump(meta, allow_unicode=True, sort_keys=False),
+                                      encoding="utf-8")  # fmt: skip
+    (folder / "ПРОЧТИ.txt").write_text(TEMPLATE_README, encoding="utf-8-sig")
+    return folder
