@@ -42,3 +42,16 @@ def test_cli_output_in_ansi_pipe(tmp_path: Path) -> None:
         check=True,
     )  # fmt: skip
     assert "χ² ≈ 1 — проверка" in out.stdout.decode("utf-8")
+
+
+def test_license(capsys: pytest.CaptureFixture[str]) -> None:
+    """Соглашение в поставке: UTF-8 с BOM (для Inno Setup), команда и текст."""
+    from saltcav.cli import main
+    from saltcav.workspace import license_text
+
+    raw = (bundled_root() / "LICENSE.txt").read_bytes()
+    assert raw.startswith(b"\xef\xbb\xbf")
+    text = license_text()
+    assert "Sergei Kizred" in text and "коммерческой" in text and "декомпилировать" in text
+    assert main(["license"]) == 0
+    assert "ЛИЦЕНЗИОННОЕ СОГЛАШЕНИЕ" in capsys.readouterr().out

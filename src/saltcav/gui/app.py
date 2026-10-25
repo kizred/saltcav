@@ -299,6 +299,7 @@ class MainWindow(QtWidgets.QMainWindow):
         act("Руководство", lambda: self.show_help(), menu=mh)
         act("Справочник параметров", lambda: self.show_help("parameters"), menu=mh)
         mh.addSeparator()
+        act("Лицензионное соглашение", self.show_license, menu=mh)
         act("О программе", self.about, menu=mh)
 
     # --- отчёт ------------------------------------------------------------------------
@@ -1302,9 +1303,28 @@ class MainWindow(QtWidgets.QMainWindow):
             "Моделирование скважинного выщелачивания соляных камер: рост камеры, "
             "неопределённость (Монте-Карло), калибровка по данным, геомеханика и "
             "устойчивость, отчёт.<br><br>Автор: <b>Sergei Kizred</b><br>"
-            "Секретная разработка Древних Русов"
+            "Секретная разработка Древних Русов<br><br>"
+            "© Sergei Kizred. Бесплатное использование, в том числе коммерческое; "
+            "изменение и распространение — с разрешения автора "
+            "(Справка → Лицензионное соглашение)."
         )
         box.exec()
+
+    def show_license(self) -> Any:
+        from saltcav.workspace import license_text
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Лицензионное соглашение")
+        dlg.resize(720, 640)
+        lay = QtWidgets.QVBoxLayout(dlg)
+        text = QtWidgets.QPlainTextEdit(license_text())
+        text.setReadOnly(True)
+        lay.addWidget(text)
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dlg.reject)
+        lay.addWidget(buttons)
+        dlg.show()
+        return dlg
 
     def closeEvent(self, event: Any) -> None:
         if not self._ask_discard():
