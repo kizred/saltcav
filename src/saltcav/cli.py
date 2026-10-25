@@ -357,8 +357,20 @@ def _load_cfg(path: str) -> RunConfig | None:
 
 
 def _cmd_data(args: argparse.Namespace) -> int:
-    """Прочитать и проверить набор данных скважины."""
-    from saltcav.io.fielddata import load_field_data
+    """Прочитать и проверить набор данных скважины (или создать шаблон)."""
+    from saltcav.io.fielddata import load_field_data, write_template
+
+    if args.template:
+        cfg_t = _load_cfg(args.config) if args.config else None
+        if args.config and cfg_t is None:
+            return 1
+        try:
+            out = write_template(args.folder, cfg_t)
+        except (OSError, ValueError) as exc:
+            print(f"Ошибка: {exc}", file=sys.stderr)
+            return 1
+        print(f"шаблон данных: {out} — заполните таблицы в Excel, описание — ПРОЧТИ.txt")
+        return 0
 
     try:
         data = load_field_data(args.folder)
@@ -732,6 +744,8 @@ def main(argv: list[str] | None = None) -> int:
     p_data = sub.add_parser("data", help="проверить набор данных скважины (папка CSV)")
     p_data.add_argument("folder", help="папка: operations.csv, brine.csv, sonar.csv, layers.csv")
     p_data.add_argument("--config", help="сверить с конфигурацией (сетка, режим)")
+    p_data.add_argument("--template", action="store_true",
+                        help="создать шаблон таблиц для Excel (из --config)")  # fmt: skip
     p_syn = sub.add_parser("synth", help="синтетический набор данных или открытый SANSMIC")
     p_syn.add_argument("config", nargs="?", help="YAML: камера и режим синтетики")
     p_syn.add_argument("--out", required=True, help="папка набора")

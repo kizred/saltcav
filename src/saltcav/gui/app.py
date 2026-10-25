@@ -1051,6 +1051,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.data_ed.editingFinished.connect(lambda: self.load_data(self.data_ed.text()))
         pick = QtWidgets.QPushButton("Данные…")
         pick.clicked.connect(self.choose_data)
+        tmpl = QtWidgets.QPushButton("Шаблон данных…")
+        tmpl.setToolTip("Создать папку с пустыми таблицами для Excel (режим и прослои — из "
+                        "текущих параметров) и описанием столбцов")  # fmt: skip
+        tmpl.clicked.connect(self.make_data_template)
         self.method_cb = QtWidgets.QComboBox()
         self.method_cb.addItem("MAP + лаплас (быстро)", "map")
         self.method_cb.addItem("MCMC (точнее, долго)", "mcmc")
@@ -1063,7 +1067,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.holdout_sb.setToolTip("Замеры позже — проверка прогноза; 0 — подгонять по всем")
         go = QtWidgets.QPushButton("Калибровать")
         go.clicked.connect(self.run_calibration)
-        for wdg in (self.data_ed, pick, self.method_cb, self.holdout_sb, go):
+        for wdg in (self.data_ed, pick, tmpl, self.method_cb, self.holdout_sb, go):
             bar.addWidget(wdg, 1 if wdg is self.data_ed else 0)
         lay.addLayout(bar)
         self.data_info = QtWidgets.QLabel(
@@ -1118,6 +1122,32 @@ class MainWindow(QtWidgets.QMainWindow):
         split.setSizes([1050, 450])
         lay.addWidget(split, 1)
         return page
+
+    def make_data_template(self, folder: Path | None = None, open_folder: bool = True) -> Any:
+        """Создать шаблон данных скважины и открыть папку в проводнике."""
+        from saltcav.io.fielddata import write_template
+
+        if folder is None:
+            start = str(Path.cwd() / "data" / "скважина-1")
+            p, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Новая папка данных скважины", start, "Папка (*)"
+            )
+            if not p:
+                return None
+            folder = Path(p)
+        try:
+            out = write_template(folder, self.validate(), name=folder.name)
+        except (OSError, ValueError) as exc:
+            QtWidgets.QMessageBox.warning(self, "Шаблон данных", str(exc))
+            return None
+        self.data_ed.setText(str(out))
+        self.data_info.setText(
+            f"Шаблон создан: <b>{out}</b>. Заполните таблицы в Excel (описание — ПРОЧТИ.txt), "
+            "сохраните как CSV с разделителем «;» и нажмите «Калибровать»."
+        )
+        if open_folder:
+            QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(str(out)))
+        return out
 
     def choose_data(self) -> None:
         d = QtWidgets.QFileDialog.getExistingDirectory(

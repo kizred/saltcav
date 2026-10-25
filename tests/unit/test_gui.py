@@ -294,3 +294,10 @@ def test_report_from_window(win: Any, tmp_path: Path) -> None:
 
 def test_window_icon(win: Any) -> None:
     assert not win.windowIcon().isNull()
+
+
+def test_data_template_button(win: Any, tmp_path: Path) -> None:
+    win.open_path(ROOT / "configs" / "demo_calibration.yaml")
+    out = win.make_data_template(tmp_path / "скв-7", open_folder=False)
+    assert out is not None and (out / "operations.csv").exists()
+    assert win.data_ed.text() == str(out)

@@ -87,7 +87,7 @@ def test_missing_columns(tmp_path: Path) -> None:
         load_field_data(tmp_path)
     empty = tmp_path / "empty"
     empty.mkdir()
-    with pytest.raises(ValueError, match="нет ни одного"):
+    with pytest.raises(ValueError, match="нет данных"):
         load_field_data(empty)
 
 
@@ -109,3 +109,21 @@ def test_shipped_datasets_are_clean(folder: str) -> None:
     )
     assert d.issues(cfg) == []
     d.apply(cfg)
+
+
+def test_template(tmp_path: Path) -> None:
+    from saltcav.io.fielddata import write_template
+
+    cfg = load_config(ROOT / "configs" / "demo_calibration.yaml")
+    out = write_template(tmp_path / "скв-1", cfg)
+    assert (out / "ПРОЧТИ.txt").exists()
+    assert (out / "brine.csv").read_text(encoding="utf-8-sig").startswith("day;")
+    d = load_field_data(out)  # пустые таблицы — не ошибка; режим и прослои — из cfg
+    assert d.brine_day.size == 0 and not d.sonar
+    assert len(d.operations) == 2 and d.layers[0]["kind"] == "anhydrite"
+    assert d.apply(cfg).schedule == cfg.schedule
+    with pytest.raises(ValueError, match="не пуста"):
+        write_template(out, cfg)
+    empty = write_template(tmp_path / "пусто")  # без конфигурации — только заголовки
+    with pytest.raises(ValueError, match="только заголовки"):
+        load_field_data(empty)

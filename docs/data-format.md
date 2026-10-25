@@ -8,7 +8,9 @@ saltcav data data/demo/well-1 --config configs/demo_calibration.yaml   # про�
 saltcav calibrate configs/demo_calibration.yaml --data data/demo/well-1  # калибровать
 ```
 
-В окне — вкладка «Калибровка» → «Данные…».
+В окне — вкладка «Калибровка» → «Данные…». Начать проще с шаблона: «Калибровка» →
+«Шаблон данных…» (или `saltcav data папка --template --config файл.yaml`) — папка с
+таблицами для Excel, режим и прослои уже заполнены из параметров, описание — `ПРОЧТИ.txt`.
 
 ## Как читаются файлы
 
