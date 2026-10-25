@@ -676,6 +676,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="saltcav", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("version", help="версия пакета")
+    sub.add_parser("license", help="лицензионное соглашение")
     p_schema = sub.add_parser("schema", help="JSON Schema конфигурации (подсказки в редакторе)")
     p_schema.add_argument(
         "--out",
@@ -795,6 +796,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "version":
         print(__version__)
+        return 0
+    if args.command == "license":
+        from saltcav.workspace import license_text
+
+        print(license_text())
         return 0
     if args.command == "gui":
         return _cmd_gui(args)

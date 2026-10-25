@@ -301,3 +301,9 @@ def test_data_template_button(win: Any, tmp_path: Path) -> None:
     out = win.make_data_template(tmp_path / "скв-7", open_folder=False)
     assert out is not None and (out / "operations.csv").exists()
     assert win.data_ed.text() == str(out)
+
+
+def test_license_dialog(win: Any) -> None:
+    dlg = win.show_license()
+    assert "Sergei Kizred" in dlg.findChild(qtw.QPlainTextEdit).toPlainText()
+    dlg.close()

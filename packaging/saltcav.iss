@@ -23,6 +23,7 @@ DisableProgramGroupPage=yes
 ; без прав администратора — в профиль пользователя; с правами — в Program Files
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+LicenseFile=..\LICENSE.txt
 SetupIconFile=..\src\saltcav\gui\icons\saltcav.ico
 UninstallDisplayIcon={app}\saltcav-gui.exe
 WizardStyle=modern

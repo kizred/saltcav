@@ -48,6 +48,7 @@ add("libiomp5md.dll" if WIN else "libiomp5.so")
 datas = collect_data_files("saltcav")  # значки, руководство
 for rel in ("configs", "data/demo", "data/open", "examples", "schema"):
     datas.append((str(ROOT / rel), rel))
+datas.append((str(ROOT / "LICENSE.txt"), "."))
 datas.append((str(ROOT / "benchmarks" / "sansmic" / "reference_direct.npz"), "benchmarks/sansmic"))
 
 hidden = (

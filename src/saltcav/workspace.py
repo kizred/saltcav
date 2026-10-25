@@ -28,6 +28,14 @@ def bundled_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def license_text() -> str:
+    """Лицензионное соглашение (LICENSE.txt рядом с программой или в корне проекта)."""
+    path = bundled_root() / "LICENSE.txt"
+    if path.exists():
+        return path.read_text(encoding="utf-8-sig")
+    return "© Sergei Kizred. Все права защищены. Текст соглашения: LICENSE.txt в поставке."
+
+
 def documents_dir() -> Path:
     """Папка «Документы» пользователя (Windows — с учётом переноса в OneDrive)."""
     if sys.platform == "win32":
