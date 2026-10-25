@@ -32,6 +32,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from saltcav import __version__
 from saltcav.core.config import RunConfig, config_warnings
+from saltcav.core.parallel import default_jobs
 from saltcav.gui.forms import ModelForm, ScalarEditor, ru_message
 from saltcav.gui.well import draw_well
 from saltcav.io.results import Results
@@ -360,7 +361,7 @@ class MainWindow(QtWidgets.QMainWindow):
             "calibration": self.calib if with_calibration else None,
             "data": getattr(self, "calib_fielddata", None) if with_calibration else None,
         }
-        jobs = os.cpu_count() or 1
+        jobs = default_jobs()
 
         def job(report: Callable[[float, str], None]) -> Any:
             from saltcav.report import make_report
@@ -812,7 +813,7 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             if not ok:
                 return
-        jobs = jobs or os.cpu_count() or 1
+        jobs = jobs or default_jobs()
 
         def job(report: Callable[[float, str], None]) -> Any:
             from saltcav.stochastic.ensemble import run_ensemble
@@ -959,7 +960,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if cfg is None or self.ensemble is None:
             return
         ens = self.ensemble
-        jobs = os.cpu_count() or 1
+        jobs = default_jobs()
 
         def job(report: Callable[[float, str], None]) -> Any:
             from saltcav.mechanics.run import ensemble_layers
@@ -1161,7 +1162,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         method = self.method_cb.currentData()
         hold = self.holdout_sb.value() or None
-        jobs = jobs or os.cpu_count() or 1
+        jobs = jobs or default_jobs()
         folder = self.calib_data
 
         def job(report: Callable[[float, str], None]) -> Any:
@@ -1270,7 +1271,7 @@ class MainWindow(QtWidgets.QMainWindow):
         box.setInformativeText(
             "Моделирование скважинного выщелачивания соляных камер: рост камеры, "
             "неопределённость (Монте-Карло), калибровка по данным, геомеханика и "
-            "устойчивость, отчёт.<br><br>Автор: <b>Sergei Kizre</b><br>"
+            "устойчивость, отчёт.<br><br>Автор: <b>Sergei Kizred</b><br>"
             "Работает без интернета: всё считается на этом компьютере."
         )
         box.exec()
@@ -1295,7 +1296,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - запус
     set_windows_app_id()
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     app.setApplicationName("saltcav")
-    app.setOrganizationName("Sergei Kizre")
+    app.setOrganizationName("Sergei Kizred")
     app.setWindowIcon(app_icon())
     guide = "--help-guide" in args  # ярлык «Руководство» в меню «Пуск»
     files = [a for a in args if not a.startswith("--")]

@@ -15,11 +15,9 @@ MCMC — аффинно-инвариантный ансамбль emcee, ста�
 from __future__ import annotations
 
 import json
-import multiprocessing as mp
-import os
 import time
 from collections.abc import Callable, Iterator
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,6 +29,7 @@ from scipy.optimize import least_squares
 
 from saltcav.calibration.problem import Param, Prediction, Problem, with_values
 from saltcav.core.config import RunConfig
+from saltcav.core.parallel import default_jobs, process_pool
 from saltcav.io.fielddata import FieldData
 
 FloatArray = NDArray[np.float64]
@@ -56,13 +55,25 @@ class _Eval:
 
 @contextmanager
 def _mapper(jobs: int) -> Iterator[Callable[..., list[Any]]]:
-    jobs = jobs if jobs > 0 else (os.cpu_count() or 1)
+    """map в процессах; если процесс упал (мало памяти), дальше — в одном процессе."""
+    jobs = default_jobs(jobs)
     if jobs == 1:
         yield lambda f, xs: [f(x) for x in xs]
         return
-    method = "forkserver" if "forkserver" in mp.get_all_start_methods() else "spawn"
-    with ProcessPoolExecutor(max_workers=jobs, mp_context=mp.get_context(method)) as pool:
-        yield lambda f, xs: list(pool.map(f, list(xs)))
+    with process_pool(jobs) as pool:
+        broken = False
+
+        def pmap(f: Callable[..., Any], xs: Any) -> list[Any]:
+            nonlocal broken
+            items = list(xs)
+            if not broken:
+                try:
+                    return list(pool.map(f, items))
+                except BrokenProcessPool:
+                    broken = True
+            return [f(x) for x in items]
+
+        yield pmap
 
 
 @dataclass

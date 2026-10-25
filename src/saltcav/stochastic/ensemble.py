@@ -12,10 +12,8 @@
 
 from __future__ import annotations
 
-import multiprocessing as mp
-import os
 from collections.abc import Callable
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +22,7 @@ from numpy.typing import NDArray
 from scipy.stats import spearmanr
 
 from saltcav.core.config import RunConfig
+from saltcav.core.parallel import blas_threads, default_jobs, process_pool
 from saltcav.core.rng import realization_rng
 from saltcav.geometry import Cavern, CavernGrid
 from saltcav.leaching.simulator import simulate
@@ -53,8 +52,9 @@ class RealizationOutput:
 
 def _run_one(task: tuple[RunConfig, int, int, FloatArray]) -> RealizationOutput:
     cfg, seed, index, u_row = task
-    real = _sampler(cfg).realize(u_row, realization_rng(seed, index))
-    hist = simulate(real.cfg, real.props)
+    with blas_threads(1):  # как в процессах-исполнителях: результат не зависит от jobs
+        real = _sampler(cfg).realize(u_row, realization_rng(seed, index))
+        hist = simulate(real.cfg, real.props)
     return RealizationOutput(
         radius=np.array(hist.radius[-1]),
         volume_t=np.array(hist.volume),
@@ -204,7 +204,8 @@ def make_realization(
     if not 0 <= index < n:
         raise ValueError(f"номер реализации {index} вне 0…{n - 1}")
     u = design(cfg, n, seed)
-    return _sampler(cfg).realize(u[index], realization_rng(seed, index))
+    with blas_threads(1):  # как в ансамбле — те же поля бит в бит
+        return _sampler(cfg).realize(u[index], realization_rng(seed, index))
 
 
 def run_ensemble(
@@ -225,27 +226,27 @@ def run_ensemble(
         raise ValueError("n ≥ 1")
     u = design(cfg, n, seed)
     tasks = [(cfg, seed, i, u[i]) for i in range(n)]
-    jobs = max(1, min(jobs if jobs > 0 else (os.cpu_count() or 1), n))
+    jobs = default_jobs(jobs, n)
     outs: list[RealizationOutput] = []
-    if jobs == 1:
-        for t in tasks:
-            outs.append(_run_one(t))
-            if progress:
-                progress(len(outs), n)
-    else:
+    if jobs > 1:
         # forkserver/spawn, не fork: в окне и при PARDISO в процессе уже есть потоки,
         # fork таких процессов может зависнуть (на Windows и так spawn)
-        method = "forkserver" if "forkserver" in mp.get_all_start_methods() else "spawn"
-        with ProcessPoolExecutor(max_workers=jobs, mp_context=mp.get_context(method)) as pool:
+        with process_pool(jobs) as pool:
             chunk = max(1, min(n // (4 * jobs), 16))
             try:
                 for o in pool.map(_run_one, tasks, chunksize=chunk):
                     outs.append(o)
                     if progress:
                         progress(len(outs), n)
+            except BrokenProcessPool:  # процесс упал (память): остальное — здесь
+                pool.shutdown(wait=False, cancel_futures=True)
             except BaseException:
                 pool.shutdown(wait=False, cancel_futures=True)
                 raise
+    for t in tasks[len(outs) :]:  # один процесс (или продолжение после сбоя пула)
+        outs.append(_run_one(t))
+        if progress:
+            progress(len(outs), n)
 
     grid = CavernGrid.from_config(cfg.grid)
     hist0 = simulate(cfg)  # моменты записи (одинаковы для всех реализаций)

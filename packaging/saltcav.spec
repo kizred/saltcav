@@ -94,10 +94,10 @@ if WIN:
     vf.write_text(f"""VSVersionInfo(
   ffi=FixedFileInfo(filevers={nums}, prodvers={nums}),
   kids=[StringFileInfo([StringTable('041904B0', [
-    StringStruct('CompanyName', 'Sergei Kizre'),
+    StringStruct('CompanyName', 'Sergei Kizred'),
     StringStruct('FileDescription', 'saltcav — моделирование соляных камер'),
     StringStruct('FileVersion', '{__version__}'),
-    StringStruct('LegalCopyright', '© Sergei Kizre'),
+    StringStruct('LegalCopyright', '© Sergei Kizred'),
     StringStruct('ProductName', 'saltcav'),
     StringStruct('ProductVersion', '{__version__}')])]),
     VarFileInfo([VarStruct('Translation', [1049, 1200])])]

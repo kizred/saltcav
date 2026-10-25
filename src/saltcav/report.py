@@ -178,7 +178,9 @@ def _inputs(cfg: RunConfig) -> str:
     out.append(_table(("№", "сут", "схема", "расход, м³/ч", "закачка, м", "отбор, м",
                        "нерастворитель, м"), st))  # fmt: skip
     if geo.layers:
-        lay = [(ly.kind.value, ly.top_m, ly.thickness_m, ly.top_sd_m) for ly in geo.layers]
+        ru = {"anhydrite": "ангидрит", "clay": "глина", "halite": "каменная соль"}
+        lay = [(ru.get(ly.kind.value, ly.kind.value), ly.top_m, ly.thickness_m, ly.top_sd_m)
+               for ly in geo.layers]  # fmt: skip
         out.append("<h3>Прослои</h3>")
         out.append(_table(("порода", "кровля, м", "мощность, м", "σ отметки, м"), lay))
     ps = [(i + 1, s.duration_years, s.wellhead_pressure_mpa, s.fluid_density_kg_m3, s.label)
@@ -365,6 +367,14 @@ def _favicon() -> str:
         return ""
 
 
+def _renumber(text: str) -> str:
+    """Номера разделов подряд: без калибровки нет «3», следующий — снова «3»."""
+    import re
+
+    counter = iter(range(1, 100))
+    return re.sub(r"<h2>\d+\. ", lambda m: f"<h2>{next(counter)}. ", text)
+
+
 def build_html(inp: ReportInputs, title: str = "") -> str:
     """HTML отчёта по готовым результатам."""
     cfg = inp.cfg
@@ -407,6 +417,7 @@ def build_html(inp: ReportInputs, title: str = "") -> str:
         "не учитывается.</li>"
         "<li>Прослои жёстко сцеплены с солью, без проскальзывания по контакту.</li></ul>"
     )
+    body = _renumber("".join(parts))
     return (
         f'<!doctype html><html lang="ru"><head><meta charset="utf-8">'
         f'<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -415,9 +426,9 @@ def build_html(inp: ReportInputs, title: str = "") -> str:
         f"<style>{CSS}</style></head><body><main>"
         f"<h1>{html.escape(head)}</h1>"
         f'<p class="sub">Отчёт saltcav {html.escape(__version__)} (автор программы — '
-        f"Sergei Kizre) · {now}</p>"
+        f"Sergei Kizred) · {now}</p>"
         + _findings(fnd)
-        + "".join(parts)
+        + body
         + limits
         + repro
         + "</main></body></html>"

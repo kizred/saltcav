@@ -6,7 +6,7 @@
   #define AppVersion "0.0.0"
 #endif
 #define AppName "saltcav"
-#define Publisher "Sergei Kizre"
+#define Publisher "Sergei Kizred"
 #define Src "..\dist\saltcav"
 
 [Setup]

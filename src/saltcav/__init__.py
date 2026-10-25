@@ -11,5 +11,5 @@ try:
 except PackageNotFoundError:  # пакет не установлен (запуск из исходников)
     __version__ = "0.0.0+unknown"
 
-__author__ = "Sergei Kizre"
+__author__ = "Sergei Kizred"
 __all__ = ["__author__", "__version__"]
