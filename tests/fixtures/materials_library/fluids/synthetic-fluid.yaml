@@ -1,0 +1,22 @@
+# SYNTHETIC TEST FIXTURE: arbitrary values solely for loader tests.
+# Not physical reference data; do not use in calculations.
+id: test-synthetic-fluid
+name: Synthetic fluid — loader test fixture only
+kind: synthetic_fluid
+properties:
+  density:
+    quantity: density
+    value: 1000.0
+    unit: kg/m3
+    range: [500.0, 1500.0]
+    source:
+      reference: Synthetic fixture for SC-004 loader tests; not a physical source
+      location: Not applicable — arbitrary test value
+  dynamic_viscosity:
+    quantity: dynamic_viscosity
+    value: 0.01
+    unit: Pa*s
+    range: [0.001, 0.1]
+    source:
+      reference: Synthetic fixture for SC-004 loader tests; not a physical source
+      location: Not applicable — arbitrary test value
