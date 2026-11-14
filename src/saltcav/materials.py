@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import yaml
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     ValidationError,
@@ -52,7 +54,14 @@ QUANTITY_UNITS: dict[str, frozenset[str]] = {
     "velocity": frozenset({"m/s"}),
 }
 
-FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
+
+def _reject_bool(value: object) -> object:
+    if isinstance(value, bool):
+        raise ValueError("ожидается число, а не логическое значение")
+    return value
+
+
+FiniteFloat = Annotated[float, BeforeValidator(_reject_bool), Field(allow_inf_nan=False)]
 PropertyName = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$")]
 
 
@@ -160,6 +169,31 @@ class LibraryValidationError(ValueError):
         super().__init__(f"{self.path}: {field}: {message}")
 
 
+class _DuplicateKeyError(yaml.YAMLError):
+    def __init__(self, key: object) -> None:
+        self.key = key
+        super().__init__(f"повторяющийся ключ {key!r}")
+
+
+class _UniqueKeyLoader(yaml.SafeLoader):
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        self.flatten_mapping(node)
+        mapping: dict[Any, Any] = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, Hashable):
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    "found unhashable key",
+                    key_node.start_mark,
+                )
+            if key in mapping:
+                raise _DuplicateKeyError(key)
+            mapping[key] = self.construct_object(value_node, deep=deep)
+        return mapping
+
+
 def _field_path(parts: tuple[int | str, ...]) -> str:
     return ".".join(str(part) for part in parts) if parts else "$"
 
@@ -167,7 +201,9 @@ def _field_path(parts: tuple[int | str, ...]) -> str:
 def _load_entry(path: Path) -> LibraryEntry:
     try:
         with path.open(encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh)
+            raw = yaml.load(fh, Loader=_UniqueKeyLoader)
+    except _DuplicateKeyError as exc:
+        raise LibraryValidationError(path, str(exc.key), str(exc)) from exc
     except yaml.YAMLError as exc:
         raise LibraryValidationError(path, "$", f"некорректный YAML: {exc}") from exc
     except (OSError, UnicodeError) as exc:

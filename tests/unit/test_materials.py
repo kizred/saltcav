@@ -48,6 +48,36 @@ def test_loads_synthetic_material_and_fluid_fixtures() -> None:
     assert "not a physical source" in fluid.properties["density"].source.reference
 
 
+@pytest.mark.parametrize(
+    ("marker", "replacement", "key"),
+    [
+        (
+            "kind: synthetic_rock\n",
+            "kind: synthetic_rock\nkind: duplicate-kind\n",
+            "kind",
+        ),
+        ("  youngs_modulus:\n", "  density: {}\n  youngs_modulus:\n", "density"),
+        (
+            "    value: 2000.0\n",
+            "    value: 2000.0\n    value: 2100.0\n",
+            "value",
+        ),
+        ("    source:\n", "    source: {}\n    source:\n", "source"),
+    ],
+)
+def test_duplicate_yaml_key_is_rejected(
+    tmp_path: Path, marker: str, replacement: str, key: str
+) -> None:
+    text = (FIXTURES / "materials" / FILENAMES["materials"]).read_text(encoding="utf-8")
+    assert marker in text
+    path = tmp_path / "materials" / "duplicate.yaml"
+    path.parent.mkdir()
+    path.write_text(text.replace(marker, replacement, 1), encoding="utf-8")
+
+    message = _assert_error(tmp_path, path, key)
+    assert "повторяющийся ключ" in message
+
+
 @pytest.mark.parametrize("field", ["id", "name", "kind", "properties"])
 def test_required_entry_fields(tmp_path: Path, field: str) -> None:
     raw = _raw()
@@ -99,6 +129,39 @@ def test_value_outside_range_is_rejected(tmp_path: Path) -> None:
     raw["properties"]["density"]["value"] = 3001.0
     path = _write(tmp_path, raw)
     _assert_error(tmp_path, path, "properties.density.value")
+
+
+@pytest.mark.parametrize("bad", [True, False])
+def test_bool_value_is_rejected(tmp_path: Path, bad: bool) -> None:
+    raw = _raw()
+    raw["properties"]["density"]["value"] = bad
+    path = _write(tmp_path, raw)
+    _assert_error(tmp_path, path, "properties.density.value")
+
+
+@pytest.mark.parametrize(("index", "bad"), [(0, True), (0, False), (1, True), (1, False)])
+def test_bool_range_bound_is_rejected(tmp_path: Path, index: int, bad: bool) -> None:
+    raw = _raw()
+    raw["properties"]["density"]["range"][index] = bad
+    path = _write(tmp_path, raw)
+    _assert_error(tmp_path, path, f"properties.density.range.{index}")
+
+
+@pytest.mark.parametrize(
+    ("value", "bounds"),
+    [(2000, [1000, 3000]), (2000.5, [1000.5, 3000.5])],
+)
+def test_integer_and_float_numbers_are_accepted(
+    tmp_path: Path, value: float, bounds: list[float]
+) -> None:
+    raw = _raw()
+    raw["properties"]["density"]["value"] = value
+    raw["properties"]["density"]["range"] = bounds
+    _write(tmp_path, raw)
+
+    density = load_library(tmp_path).materials["test-synthetic-rock"].properties["density"]
+    assert density.value == value
+    assert density.range == tuple(bounds)
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
