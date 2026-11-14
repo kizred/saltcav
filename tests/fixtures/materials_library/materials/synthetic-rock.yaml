@@ -1,0 +1,22 @@
+# SYNTHETIC TEST FIXTURE: arbitrary values solely for loader tests.
+# Not physical reference data; do not use in calculations.
+id: test-synthetic-rock
+name: Synthetic rock — loader test fixture only
+kind: synthetic_rock
+properties:
+  density:
+    quantity: density
+    value: 2000.0
+    unit: kg/m3
+    range: [1000.0, 3000.0]
+    source:
+      reference: Synthetic fixture for SC-004 loader tests; not a physical source
+      location: Not applicable — arbitrary test value
+  youngs_modulus:
+    quantity: stress
+    value: 2.0e10
+    unit: Pa
+    range: [1.0e9, 1.0e11]
+    source:
+      reference: Synthetic fixture for SC-004 loader tests; not a physical source
+      location: Not applicable — arbitrary test value
