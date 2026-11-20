@@ -224,7 +224,14 @@ class ListTable(QtWidgets.QWidget):
         super().__init__()
         self.name, self.info, self.item = name, info, item
         self.on_change = on_change
-        self.fields = list(item.model_fields.items())
+        self.fields = [
+            (field_name, field)
+            for field_name, field in item.model_fields.items()
+            if not (
+                isinstance(field.json_schema_extra, dict)
+                and field.json_schema_extra.get("readOnly") is True
+            )
+        ]
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         title = QtWidgets.QLabel(f"<b>{label_of(name, info)}</b>")

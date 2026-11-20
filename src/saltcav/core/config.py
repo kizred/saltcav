@@ -15,6 +15,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from saltcav.core import units
+from saltcav.materials import PropertySource
 
 
 class _Strict(BaseModel):
@@ -58,6 +59,13 @@ class LayerConfig(_Strict):
     kind: Annotated[
         LayerKind, Field(description="Порода: anhydrite, clay — не растворяются; halite — соль")
     ]
+    material_id: Annotated[
+        str | None,
+        Field(
+            pattern=r"^[a-z0-9][a-z0-9_-]*$",
+            description="Стабильный id породы из materials_library/materials",
+        ),
+    ] = None
     top_m: Annotated[float, Field(gt=0, description="Глубина кровли прослоя, м")]
     thickness_m: Annotated[float, Field(gt=0, description="Мощность прослоя, м")]
     top_sd_m: Annotated[
@@ -72,6 +80,11 @@ class LayerConfig(_Strict):
             gt=0, description="Критический вылет карниза, м; пусто — ledge_span_ratio × мощность"
         ),
     ] = None
+    material_sources: dict[str, PropertySource] = Field(
+        default_factory=dict,
+        description="Источники значений, применённых из material_id; заполняет load_config",
+        json_schema_extra={"readOnly": True},
+    )
 
 
 class GeologyConfig(_Strict):
@@ -519,6 +532,10 @@ class RunConfig(_Strict):
     """Конфигурация расчёта saltcav (YAML)."""
 
     name: str = Field(description="Название расчёта (в выводе и файлах)")
+    materials_library: str | None = Field(
+        default=None,
+        description="Корень библиотеки с materials/ и fluids/; относительный путь — от файла YAML",
+    )
     grid: GridConfig
     geology: GeologyConfig = GeologyConfig()
     schedule: ScheduleConfig
@@ -597,10 +614,14 @@ def config_schema() -> dict[str, object]:
 
 
 def load_config(path: str | Path) -> RunConfig:
-    """Прочитать и проверить YAML-конфигурацию."""
-    with Path(path).open(encoding="utf-8") as fh:
+    """Прочитать и проверить YAML-конфигурацию, разрешить ссылки на материалы."""
+    config_path = Path(path)
+    with config_path.open(encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
-    return RunConfig.model_validate(raw)
+    cfg = RunConfig.model_validate(raw)
+    from saltcav.material_binding import resolve_layer_materials
+
+    return resolve_layer_materials(cfg, config_path)
 
 
 def dump_config(cfg: RunConfig, path: str | Path) -> None:

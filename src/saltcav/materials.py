@@ -1,7 +1,7 @@
 """Проверенные YAML-библиотеки пород и рабочих сред.
 
-Значения и границы диапазонов хранятся только в СИ. Модуль не связан с
-конфигурацией прогона и не подставляет свойства в существующие расчёты.
+Значения и границы диапазонов хранятся только в СИ. Привязка записей к
+геологическим слоям выполняется в :mod:`saltcav.material_binding`.
 """
 
 from __future__ import annotations
@@ -75,15 +75,10 @@ class PropertySource(_Strict):
     reference: Annotated[
         str, Field(min_length=1, description="Полное библиографическое описание или идентификатор")
     ]
-    location: (
-        Annotated[
-            str,
-            Field(
-                min_length=1, description="Страница, таблица, уравнение, раздел или строка данных"
-            ),
-        ]
-        | None
-    ) = None
+    location: Annotated[
+        str | None,
+        Field(min_length=1, description="Страница, таблица, уравнение, раздел или строка данных"),
+    ] = None
 
 
 class NumericProperty(_Strict):
