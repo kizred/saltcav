@@ -29,9 +29,7 @@ class _PropertyBinding:
     unit: str
 
 
-_LAYER_PROPERTIES = (
-    _PropertyBinding("critical_span", "critical_span_m", "length", "m"),
-)
+_LAYER_PROPERTIES = (_PropertyBinding("critical_span", "critical_span_m", "length", "m"),)
 _PROPERTIES_BY_NAME = {binding.property_name: binding for binding in _LAYER_PROPERTIES}
 
 
@@ -70,27 +68,47 @@ def _resolve_layer(
             f"kind слоя {layer.kind.value!r} противоречит kind материала {entry.kind!r} "
             f"({material_id!r})",
         )
+    for property_name in layer.material_overrides:
+        if property_name not in _PROPERTIES_BY_NAME:
+            supported = ", ".join(_PROPERTIES_BY_NAME)
+            raise LayerMaterialError(
+                config_path,
+                index,
+                f"material_overrides.{property_name}",
+                f"неизвестное или неподдерживаемое свойство {property_name!r}; "
+                f"доступно: {supported}",
+            )
 
     raw = layer.model_dump(mode="json")
     sources = dict(layer.material_sources)
     applied = False
     for binding in _LAYER_PROPERTIES:
-        prop = entry.properties.get(binding.property_name)
-        if prop is None:
-            continue
         current = getattr(layer, binding.field_name)
         if binding.field_name in layer.model_fields_set and current is not None:
             continue
-        if prop.quantity != binding.quantity or prop.unit != binding.unit:
-            raise LayerMaterialError(
-                config_path,
-                index,
-                binding.field_name,
-                f"materials[{material_id!r}].properties[{binding.property_name!r}] должно иметь "
-                f"quantity={binding.quantity!r} и unit={binding.unit!r}; получено "
-                f"quantity={prop.quantity!r}, unit={prop.unit!r}",
-            )
-        candidate = {**raw, binding.field_name: prop.value}
+        if binding.property_name in layer.material_overrides:
+            value = layer.material_overrides[binding.property_name]
+            error_field = f"material_overrides.{binding.property_name}"
+            origin = f"material_overrides[{binding.property_name!r}]"
+            source = None
+        else:
+            prop = entry.properties.get(binding.property_name)
+            if prop is None:
+                continue
+            if prop.quantity != binding.quantity or prop.unit != binding.unit:
+                raise LayerMaterialError(
+                    config_path,
+                    index,
+                    binding.field_name,
+                    f"materials[{material_id!r}].properties[{binding.property_name!r}] должно "
+                    f"иметь quantity={binding.quantity!r} и unit={binding.unit!r}; получено "
+                    f"quantity={prop.quantity!r}, unit={prop.unit!r}",
+                )
+            value = prop.value
+            error_field = binding.field_name
+            origin = f"materials[{material_id!r}].properties[{binding.property_name!r}]"
+            source = prop.source
+        candidate = {**raw, binding.field_name: value}
         try:
             LayerConfig.model_validate(candidate)
         except ValidationError as exc:
@@ -98,12 +116,14 @@ def _resolve_layer(
             raise LayerMaterialError(
                 config_path,
                 index,
-                binding.field_name,
-                f"значение {prop.value} из materials[{material_id!r}]."
-                f"properties[{binding.property_name!r}] не прошло проверку: {detail}",
+                error_field,
+                f"значение {value} из {origin} не прошло проверку: {detail}",
             ) from exc
         raw = candidate
-        sources[binding.field_name] = prop.source
+        if source is None:
+            sources.pop(binding.field_name, None)
+        else:
+            sources[binding.field_name] = source
         applied = True
     if not applied:
         return layer
@@ -112,13 +132,22 @@ def _resolve_layer(
 
 
 def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfig:
-    """Заполнить поддерживаемые поля слоёв из библиотеки, не меняя её записи.
+    """Применить локальные переопределения и значения библиотеки к слоям.
 
     Библиотека загружается только при наличии хотя бы одного ``material_id``.
     Относительный ``materials_library`` разрешается от каталога ``config_path``.
     """
 
     config_path = Path(config_path)
+    for index, layer in enumerate(cfg.geology.layers):
+        if layer.material_id is None and layer.material_overrides:
+            property_name = next(iter(layer.material_overrides))
+            raise LayerMaterialError(
+                config_path,
+                index,
+                f"material_overrides.{property_name}",
+                "локальное переопределение требует поля material_id",
+            )
     referenced = [(i, layer) for i, layer in enumerate(cfg.geology.layers) if layer.material_id]
     if not referenced:
         return cfg
