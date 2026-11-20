@@ -507,6 +507,27 @@
           "title": "Initial Saturation",
           "type": "number"
         },
+        "injection_fluid_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Стабильный id рабочей среды закачки из materials_library/fluids",
+          "title": "Injection Fluid Id"
+        },
+        "injection_concentration_kg_m3": {
+          "default": 0.0,
+          "description": "Массовая концентрация NaCl в среде закачки, кг/м³",
+          "minimum": 0,
+          "title": "Injection Concentration Kg M3",
+          "type": "number"
+        },
         "plume": {
           "default": true,
           "description": "Струя и плюм от башмака закачки; false — мгновенное перемешивание",
@@ -1138,6 +1159,8 @@
         "roof_ratio": 1.5,
         "floor_ratio": 0.0,
         "initial_saturation": 1.0,
+        "injection_fluid_id": null,
+        "injection_concentration_kg_m3": 0.0,
         "plume": true,
         "entrainment_coeff": 0.09,
         "tubing_radius_m": 0.1,
