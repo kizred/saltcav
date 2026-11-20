@@ -317,6 +317,20 @@
           "$ref": "#/$defs/LayerKind",
           "description": "Порода: anhydrite, clay — не растворяются; halite — соль"
         },
+        "material_id": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Стабильный id породы из materials_library/materials",
+          "title": "Material Id"
+        },
         "top_m": {
           "description": "Глубина кровли прослоя, м",
           "exclusiveMinimum": 0,
@@ -356,6 +370,15 @@
           "default": null,
           "description": "Критический вылет карниза, м; пусто — ledge_span_ratio × мощность",
           "title": "Critical Span M"
+        },
+        "material_sources": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PropertySource"
+          },
+          "description": "Источники значений, применённых из material_id; заполняет load_config",
+          "readOnly": true,
+          "title": "Material Sources",
+          "type": "object"
         }
       },
       "required": [
@@ -774,6 +797,37 @@
       "title": "PressureStageConfig",
       "type": "object"
     },
+    "PropertySource": {
+      "additionalProperties": false,
+      "description": "Источник числового свойства и точное место в нём, если оно применимо.",
+      "properties": {
+        "reference": {
+          "description": "Полное библиографическое описание или идентификатор",
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Страница, таблица, уравнение, раздел или строка данных",
+          "title": "Location"
+        }
+      },
+      "required": [
+        "reference"
+      ],
+      "title": "PropertySource",
+      "type": "object"
+    },
     "ScheduleConfig": {
       "additionalProperties": false,
       "description": "График режима выщелачивания.",
@@ -1042,6 +1096,19 @@
       "description": "Название расчёта (в выводе и файлах)",
       "title": "Name",
       "type": "string"
+    },
+    "materials_library": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Корень библиотеки с materials/ и fluids/; относительный путь — от файла YAML",
+      "title": "Materials Library"
     },
     "grid": {
       "$ref": "#/$defs/GridConfig"
