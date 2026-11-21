@@ -117,9 +117,7 @@ def sampled_layer_property_ranges(
                 binding.field_name,
                 f"{location}: выборка свойства {rule.property!r} требует material_id",
             )
-        # SC-011 добавляет material_overrides; getattr сохраняет совместимость веток до merge.
-        overrides = getattr(layer, "material_overrides", {})
-        if rule.property in overrides:
+        if rule.property in layer.material_overrides:
             raise LayerMaterialError(
                 config_path,
                 rule.layer,

@@ -10,11 +10,11 @@ import numpy as np
 import pytest
 import yaml
 
-from saltcav.core.config import LayerConfig, RunConfig, load_config
+from saltcav.core.config import RunConfig, load_config
 from saltcav.geometry import CavernGrid
 from saltcav.leaching.ledges import interlayers_from_config
 from saltcav.leaching.simulator import simulate
-from saltcav.material_binding import LayerMaterialError, sampled_layer_property_ranges
+from saltcav.material_binding import LayerMaterialError
 from saltcav.stochastic.ensemble import make_realization, run_ensemble
 from saltcav.stochastic.sampling import design, parameter_names
 
@@ -212,24 +212,12 @@ def test_explicit_layer_value_conflicts_with_sampling(tmp_path: Path) -> None:
 
 def test_sc011_local_override_conflicts_with_sampling(tmp_path: Path) -> None:
     _write_library(tmp_path / "library")
-    if "material_overrides" in LayerConfig.model_fields:
-        raw = _raw()
-        raw["geology"]["layers"][0]["material_overrides"] = {"critical_span": 3.0}
-        path = _write_case(tmp_path, raw)
-        with pytest.raises(LayerMaterialError) as caught:
-            load_config(path)
-    else:
-        path = _write_case(tmp_path, _raw())
-        cfg = load_config(path)
-        layer = cfg.geology.layers[0].model_copy(
-            update={"material_overrides": {"critical_span": 3.0}}
-        )
-        layers = [layer, *cfg.geology.layers[1:]]
-        overridden = cfg.model_copy(
-            update={"geology": cfg.geology.model_copy(update={"layers": layers})}
-        )
-        with pytest.raises(LayerMaterialError) as caught:
-            sampled_layer_property_ranges(overridden, path)
+    raw = _raw()
+    raw["geology"]["layers"][0]["material_overrides"] = {"critical_span": 3.0}
+    path = _write_case(tmp_path, raw)
+
+    with pytest.raises(LayerMaterialError) as caught:
+        load_config(path)
 
     message = str(caught.value)
     assert "geology.layers.0.material_overrides.critical_span" in message
