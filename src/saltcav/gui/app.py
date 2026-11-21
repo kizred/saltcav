@@ -36,7 +36,11 @@ from saltcav.core.parallel import default_jobs
 from saltcav.gui.forms import ModelForm, ScalarEditor, ru_message
 from saltcav.gui.well import draw_well
 from saltcav.io.results import Results
-from saltcav.material_binding import InjectionFluidError, LayerMaterialError, resolve_layer_materials
+from saltcav.material_binding import (
+    InjectionFluidError,
+    LayerMaterialError,
+    resolve_layer_materials,
+)
 from saltcav.materials import LibraryValidationError, MaterialLibrary, load_library
 
 SECTIONS: tuple[tuple[str, str], ...] = (
