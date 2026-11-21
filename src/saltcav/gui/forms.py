@@ -377,11 +377,18 @@ class ListTable(QtWidgets.QWidget):
                         row[fname] = None
                     continue
                 row[fname] = parse_number(text, ann is int) if ann in (int, float) else text
-            if r < len(self._source_rows):
-                source = self._source_rows[r]
-                for fname in self.read_only_fields:
-                    if fname in source:
-                        row[fname] = deepcopy(source[fname])
+            source = self._source_rows[r] if r < len(self._source_rows) else {}
+            for fname, finfo in self.fields:
+                if (
+                    fname in row
+                    and fname not in source
+                    and not finfo.is_required()
+                    and row[fname] == default_of(finfo)
+                ):
+                    del row[fname]
+            for fname in self.read_only_fields:
+                if fname in source:
+                    row[fname] = deepcopy(source[fname])
             out.append(row)
         return out
 

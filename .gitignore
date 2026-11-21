@@ -18,6 +18,7 @@ build/
 dist/
 .venv/
 venv/
+.tools/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
