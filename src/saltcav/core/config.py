@@ -136,7 +136,7 @@ class StageConfig(_Strict):
 
     duration_days: Annotated[float, Field(gt=0, description="Длительность ступени, сут")]
     mode: Annotated[LeachMode, Field(description="direct — прямоток, reverse — противоток")]
-    rate_m3_per_h: Annotated[float, Field(gt=0, description="Расход закачки пресной воды, м³/ч")]
+    rate_m3_per_h: Annotated[float, Field(gt=0, description="Расход закачки рабочей среды, м³/ч")]
     injection_depth_m: Annotated[
         float, Field(gt=0, description="Глубина башмака колонны закачки, м")
     ]
@@ -224,6 +224,17 @@ class LeachingConfig(_Strict):
     initial_saturation: Annotated[
         float, Field(ge=0, le=1, description="Начальное насыщение рассола в скважине C₀/C_s")
     ] = 1.0
+    injection_fluid_id: Annotated[
+        str | None,
+        Field(
+            pattern=r"^[a-z0-9][a-z0-9_-]*$",
+            description="Стабильный id рабочей среды закачки из materials_library/fluids",
+        ),
+    ] = None
+    injection_concentration_kg_m3: Annotated[
+        float,
+        Field(ge=0, description="Массовая концентрация NaCl в среде закачки, кг/м³"),
+    ] = 0.0
     plume: bool = Field(
         default=True,
         description="Струя и плюм от башмака закачки; false — мгновенное перемешивание",
@@ -636,7 +647,7 @@ def config_schema() -> dict[str, object]:
 
 
 def load_config(path: str | Path) -> RunConfig:
-    """Прочитать и проверить YAML-конфигурацию, разрешить ссылки на материалы."""
+    """Прочитать и проверить YAML-конфигурацию, разрешить ссылки на материалы и среды."""
     config_path = Path(path)
     with config_path.open(encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)

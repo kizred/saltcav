@@ -27,7 +27,7 @@ f_ins растворённой породы оседает на дно насы�
 Башмак, оказавшийся в насыпи, переносится на первый слой над ней (как подъём
 колонны на промысле); число таких шагов пишется в историю.
 
-Струя и плюм (:mod:`saltcav.leaching.plume`, включено по умолчанию): пресная вода
+Струя и плюм (:mod:`saltcav.leaching.plume`, включено по умолчанию): среда закачки
 выходит из башмака вниз, разворачивается, всплывает с вовлечением рассола и
 отдаётся на уровне нейтральной плавучести; перенос — неявная консервативная
 схема с обратным течением между слоями. При ``plume: false`` — прежняя модель
@@ -272,17 +272,19 @@ def simulate(cfg: RunConfig, props: WallProperties | None = None) -> History:
                 pl = plume_fluxes(
                     c[col], dz_col, r_col, k_in - kb, stage.q_in,
                     lp.tubing_radius_m, lp.entrainment_coeff, lp.temperature_c,
+                    c_in=lp.injection_concentration_kg_m3,
                 )  # fmt: skip
                 hist.plume_deposit_depth.append(float(grid.z_centers[kb + pl.k_deposit]))
                 raw = plume_transport_step(
                     c[col], v_old[col], v_new[col], dm[col], stage.q_in,
                     pl.entrained, pl.k_deposit, k_out - kb, dt,
+                    c_in=lp.injection_concentration_kg_m3,
                 )  # fmt: skip
                 res = type(raw)(stabilize(raw.c, v_new[col]), raw.produced_salt, raw.q_out)
             else:
                 res = column_step(
                     c[kb:kf], v_old[kb:kf], v_new[kb:kf], dm[kb:kf], stage.q_in,
-                    k_in - kb, k_out - kb, dt,
+                    k_in - kb, k_out - kb, dt, c_in=lp.injection_concentration_kg_m3,
                 )  # fmt: skip
             c = np.concatenate([c[:kb], res.c, c[kf:]])
             cav = new_cav
