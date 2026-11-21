@@ -1,4 +1,4 @@
-"""Разрешение ссылок геологических слоёв на записи библиотеки материалов."""
+"""Разрешение ссылок конфигурации на записи библиотеки материалов и сред."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from saltcav.core.config import LayerConfig, RunConfig
+from saltcav.core.config import LayerConfig, LeachingConfig, RunConfig
 from saltcav.materials import LibraryValidationError, MaterialLibrary, load_library
 
 
@@ -21,6 +21,15 @@ class LayerMaterialError(ValueError):
         super().__init__(f"{config_path}: geology.layers.{layer}.{field}: {message}")
 
 
+class InjectionFluidError(ValueError):
+    """Ошибка ссылки на рабочую среду закачки с путём к полю конфигурации."""
+
+    def __init__(self, config_path: Path, field: str, message: str) -> None:
+        self.config_path = config_path
+        self.field = field
+        super().__init__(f"{config_path}: leaching.{field}: {message}")
+
+
 @dataclass(frozen=True)
 class _PropertyBinding:
     property_name: str
@@ -30,6 +39,9 @@ class _PropertyBinding:
 
 
 _LAYER_PROPERTIES = (_PropertyBinding("critical_span", "critical_span_m", "length", "m"),)
+_INJECTION_FLUID_PROPERTY = _PropertyBinding(
+    "mass_concentration", "injection_concentration_kg_m3", "mass_concentration", "kg/m3"
+)
 _PROPERTIES_BY_NAME = {binding.property_name: binding for binding in _LAYER_PROPERTIES}
 
 
@@ -131,11 +143,57 @@ def _resolve_layer(
     return LayerConfig.model_validate(raw)
 
 
-def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfig:
-    """Применить локальные переопределения и значения библиотеки к слоям.
+def _resolve_injection_fluid(
+    leaching: LeachingConfig, config_path: Path, library: MaterialLibrary
+) -> LeachingConfig:
+    fluid_id = leaching.injection_fluid_id
+    if fluid_id is None:
+        return leaching
+    if fluid_id not in library.fluids:
+        if fluid_id in library.materials:
+            raise InjectionFluidError(
+                config_path,
+                "injection_fluid_id",
+                f"id {fluid_id!r} найден в materials, а не в fluids; закачке нужна рабочая среда",
+            )
+        raise InjectionFluidError(
+            config_path, "injection_fluid_id", f"неизвестный id рабочей среды {fluid_id!r}"
+        )
 
-    Библиотека загружается только при наличии хотя бы одного ``material_id``.
-    Относительный ``materials_library`` разрешается от каталога ``config_path``.
+    binding = _INJECTION_FLUID_PROPERTY
+    if binding.field_name in leaching.model_fields_set:
+        return leaching
+    prop = library.fluids[fluid_id].properties.get(binding.property_name)
+    if prop is None:
+        return leaching
+    if prop.quantity != binding.quantity or prop.unit != binding.unit:
+        raise InjectionFluidError(
+            config_path,
+            binding.field_name,
+            f"fluids[{fluid_id!r}].properties[{binding.property_name!r}] должно иметь "
+            f"quantity={binding.quantity!r} и unit={binding.unit!r}; получено "
+            f"quantity={prop.quantity!r}, unit={prop.unit!r}",
+        )
+    raw = leaching.model_dump(mode="json")
+    raw[binding.field_name] = prop.value
+    try:
+        return LeachingConfig.model_validate(raw)
+    except ValidationError as exc:
+        detail = exc.errors()[0]["msg"]
+        raise InjectionFluidError(
+            config_path,
+            binding.field_name,
+            f"значение {prop.value} из fluids[{fluid_id!r}]."
+            f"properties[{binding.property_name!r}] не прошло проверку: {detail}",
+        ) from exc
+
+
+def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfig:
+    """Заполнить поддерживаемые поля слоёв и среды закачки из библиотеки.
+
+    Библиотека загружается один раз и только при наличии хотя бы одного
+    ``material_id`` или ``injection_fluid_id``. Относительный ``materials_library``
+    разрешается от каталога ``config_path``.
     """
 
     config_path = Path(config_path)
@@ -149,15 +207,22 @@ def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfi
                 "локальное переопределение требует поля material_id",
             )
     referenced = [(i, layer) for i, layer in enumerate(cfg.geology.layers) if layer.material_id]
-    if not referenced:
+    fluid_referenced = cfg.leaching.injection_fluid_id is not None
+    if not referenced and not fluid_referenced:
         return cfg
-    first_index = referenced[0][0]
+    first_index = referenced[0][0] if referenced else 0
     if cfg.materials_library is None:
-        raise LayerMaterialError(
+        if referenced:
+            raise LayerMaterialError(
+                config_path,
+                first_index,
+                "material_id",
+                "ссылка на материал требует верхнеуровневого поля materials_library",
+            )
+        raise InjectionFluidError(
             config_path,
-            first_index,
-            "material_id",
-            "ссылка на материал требует верхнеуровневого поля materials_library",
+            "injection_fluid_id",
+            "ссылка на рабочую среду требует верхнеуровневого поля materials_library",
         )
     root = Path(cfg.materials_library)
     if not root.is_absolute():
@@ -166,15 +231,18 @@ def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfi
     try:
         library = load_library(root)
     except LibraryValidationError as exc:
-        raise LayerMaterialError(
-            config_path,
-            first_index,
-            _library_error_field(exc),
-            f"не удалось загрузить materials_library {str(root)!r}: {exc}",
-        ) from exc
+        message = f"не удалось загрузить materials_library {str(root)!r}: {exc}"
+        if referenced:
+            raise LayerMaterialError(
+                config_path, first_index, _library_error_field(exc), message
+            ) from exc
+        raise InjectionFluidError(config_path, "injection_fluid_id", message) from exc
 
     layers = list(cfg.geology.layers)
     for index, layer in referenced:
         layers[index] = _resolve_layer(layer, index, config_path, library)
     geology = cfg.geology.model_copy(update={"layers": layers})
-    return cfg.model_copy(update={"materials_library": str(root), "geology": geology})
+    leaching = _resolve_injection_fluid(cfg.leaching, config_path, library)
+    return cfg.model_copy(
+        update={"materials_library": str(root), "geology": geology, "leaching": leaching}
+    )

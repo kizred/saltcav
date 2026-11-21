@@ -21,7 +21,7 @@ class Stage:
     t_start: float  # с
     t_end: float  # с
     mode: LeachMode
-    q_in: float  # м³/с, расход закачки пресной воды
+    q_in: float  # м³/с, расход закачки рабочей среды
     k_in: int  # слой башмака закачки
     k_out: int  # слой башмака отбора
     k_blanket: int  # первый слой ниже уровня нерастворителя
