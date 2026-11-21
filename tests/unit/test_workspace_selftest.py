@@ -32,9 +32,13 @@ def test_workspace_copy(tmp_path: Path) -> None:
     assert cfg.read_text(encoding="utf-8") == "# моя правка\n"
 
 
-def test_selftest_bundled_materials(capsys: pytest.CaptureFixture[str]) -> None:
+def test_selftest_bundled_materials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     from saltcav.cli import main
 
+    monkeypatch.chdir(tmp_path)
+    assert not list(tmp_path.iterdir())
     assert main(["selftest", "--skip", _materials_only_skip()]) == 0
     out = capsys.readouterr().out
     assert "библиотека материалов" in out and "OK" in out
@@ -52,7 +56,24 @@ def test_selftest_missing_materials_resource(
     assert main(["selftest", "--skip", _materials_only_skip()]) == 1
     out = capsys.readouterr().out
     assert "библиотека материалов" in out and "СБОЙ" in out
-    assert str(missing) in out and "ожидается каталог библиотеки" in out
+    assert "FileNotFoundError" in out
+    assert f"поставляемый ресурс библиотеки материалов не найден: {missing}" in out
+
+
+def test_selftest_missing_materials_entry_on_disk(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from saltcav.cli import main
+
+    root = tmp_path / "empty-materials-library"
+    (root / "materials").mkdir(parents=True)
+    (root / "fluids").mkdir()
+    monkeypatch.setattr("saltcav.workspace.bundled_materials_library", lambda: root)
+
+    assert main(["selftest", "--skip", _materials_only_skip()]) == 1
+    out = capsys.readouterr().out
+    assert str(root) in out
+    assert "не найдена порода 'test-synthetic-rock'" in out
 
 
 @pytest.mark.parametrize(

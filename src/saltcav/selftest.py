@@ -27,14 +27,22 @@ def check_materials_library() -> str:
     from saltcav.workspace import bundled_materials_library
 
     root = bundled_materials_library()
+    if not root.is_dir():
+        raise FileNotFoundError(f"поставляемый ресурс библиотеки материалов не найден: {root}")
     library = load_library(root)
-    rock = library.materials.get(BUNDLED_MATERIAL_ID)
-    if rock is None:
-        raise RuntimeError(f"в библиотеке {root} не найдена порода {BUNDLED_MATERIAL_ID!r}")
-    fluid = library.fluids.get(BUNDLED_FLUID_ID)
-    if fluid is None:
-        raise RuntimeError(f"в библиотеке {root} не найдена среда {BUNDLED_FLUID_ID!r}")
-    return f"порода {rock.id}, среда закачки {fluid.id}"
+    required = (
+        ("порода", BUNDLED_MATERIAL_ID, library.materials),
+        ("среда закачки", BUNDLED_FLUID_ID, library.fluids),
+    )
+    selected: list[str] = []
+    for category, entry_id, entries in required:
+        entry = entries.get(entry_id)
+        if entry is None:
+            raise RuntimeError(
+                f"в поставляемой библиотеке {root} не найдена {category} {entry_id!r}"
+            )
+        selected.append(f"{category} {entry.id}")
+    return ", ".join(selected)
 
 
 def _small_cfg() -> Any:

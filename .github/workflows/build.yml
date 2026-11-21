@@ -38,9 +38,26 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          resource_root="$GITHUB_WORKSPACE/dist/saltcav/_internal/data/materials_library"
+          resources=(
+            "$resource_root/materials/synthetic-rock.yaml"
+            "$resource_root/fluids/synthetic-fluid.yaml"
+          )
+          for resource in "${resources[@]}"; do
+            if [[ ! -f "$resource" ]]; then
+              echo "::error title=Библиотека материалов::не найден $resource"
+              exit 1
+            fi
+            echo "Поставляемый ресурс: $resource"
+          done
           workdir=$(mktemp -d "$RUNNER_TEMP/saltcav-selftest.XXXXXX")
           cd "$workdir"
-          unset PYTHONPATH
+          if [[ -n "$(ls -A)" ]]; then
+            echo "::error title=Самопроверка::рабочий каталог не пуст: $workdir"
+            exit 1
+          fi
+          echo "Пустой рабочий каталог самопроверки: $workdir"
+          unset PYTHONPATH PYTHONHOME
           "$GITHUB_WORKSPACE/dist/saltcav/saltcav.exe" selftest --skip 3D-вид 2>&1 | tee "$RUNNER_TEMP/selftest.txt"
           echo "::notice title=Самопроверка::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$RUNNER_TEMP/selftest.txt")"
       - name: Журнал самопроверки при сбое
