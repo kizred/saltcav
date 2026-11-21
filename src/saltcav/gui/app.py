@@ -36,6 +36,8 @@ from saltcav.core.parallel import default_jobs
 from saltcav.gui.forms import ModelForm, ScalarEditor, ru_message
 from saltcav.gui.well import draw_well
 from saltcav.io.results import Results
+from saltcav.material_binding import InjectionFluidError, LayerMaterialError, resolve_layer_materials
+from saltcav.materials import LibraryValidationError, MaterialLibrary, load_library
 
 SECTIONS: tuple[tuple[str, str], ...] = (
     ("grid", "Сетка"),
@@ -143,6 +145,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._viewer: Any = None
         self._help: Any = None
         self.surrogate: Any = None
+        self.material_library: MaterialLibrary | None = None
+        self._material_library_error: LibraryValidationError | None = None
         self.resize(1500, 950)
         from saltcav.gui.icons import app_icon
 
@@ -216,6 +220,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         library_editor = self.materials_library_ed.widget
         library_editor.setProperty("saltcav_path", "materials_library")
+        library_editor.textChanged.connect(self._refresh_material_choices)
         library_row = QtWidgets.QWidget()
         library_layout = QtWidgets.QHBoxLayout(library_row)
         library_layout.setContentsMargins(0, 0, 0, 0)
@@ -542,6 +547,28 @@ class MainWindow(QtWidgets.QMainWindow):
         finally:
             combo.blockSignals(False)
 
+    def _refresh_material_choices(self, _text: str = "") -> None:
+        given, root = self.materials_library_ed.get()
+        self.material_library = None
+        self._material_library_error = None
+        if given and root is not None:
+            library_path = Path(root)
+            if not library_path.is_absolute():
+                base = self.path.parent if self.path is not None else Path.cwd()
+                library_path = base / library_path
+            try:
+                self.material_library = load_library(library_path)
+            except LibraryValidationError as exc:
+                self._material_library_error = exc
+        choices: list[tuple[str, Any]] = [("— без материала —", None)]
+        if self.material_library is not None:
+            entries = sorted(
+                self.material_library.materials.values(), key=lambda entry: (entry.name, entry.id)
+            )
+            choices.extend((f"{entry.name} ({entry.id})", entry.id) for entry in entries)
+        layers = self.forms["geology"].tables["layers"]
+        layers.set_value_choices("material_id", choices)
+
     def form_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {}
         given, name = self.name_ed.get()
@@ -558,6 +585,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.name_ed.set(data.get("name"))
         self.materials_library_ed.set(data.get("materials_library"))
         self._refresh_injection_fluids()
+        self._refresh_material_choices()
         for key, form in self.forms.items():
             form.set(data.get(key) or {})
         self.validate()
@@ -572,13 +600,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle(f"saltcav {__version__} — {name}{' *' if self.dirty else ''}")
 
     def validate(self) -> RunConfig | None:
-        """Проверить форму моделью; подсветить ошибки; обновить схему скважины."""
+        """Проверить модель и ссылки на библиотеку; подсветить ошибки; обновить схему."""
         self.name_ed.set_error(None)
+        self.materials_library_ed.set_error(None)
         for form in self.forms.values():
             form.clear_errors()
         self.errors.clear()
         try:
-            cfg = RunConfig.model_validate(self.form_dict())
+            unresolved = RunConfig.model_validate(self.form_dict())
+            config_path = self.path or Path.cwd() / "unsaved.yaml"
+            cfg = resolve_layer_materials(unresolved, config_path)
         except ValidationError as exc:
             for err in exc.errors():
                 loc = tuple(err["loc"])
@@ -590,6 +621,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._mark(loc, msg)
             n = len(exc.errors())
             self.status_lab.setText(f"<span style='color:#c0392b'>Ошибок: {n}</span>")
+            self._set_actions(False)
+            return None
+        except (LayerMaterialError, InjectionFluidError) as exc:
+            if isinstance(exc, LayerMaterialError):
+                loc: tuple[Any, ...] = (
+                    "geology",
+                    "layers",
+                    exc.layer,
+                    *exc.field.split("."),
+                )
+            else:
+                loc = ("leaching", exc.field)
+            msg = str(exc)
+            item = QtWidgets.QListWidgetItem(msg)
+            item.setData(QtCore.Qt.ItemDataRole.UserRole, loc)
+            self.errors.addItem(item)
+            self._mark(loc, msg)
+            self.status_lab.setText("<span style='color:#c0392b'>Ошибок: 1</span>")
             self._set_actions(False)
             return None
         self.cfg = cfg
