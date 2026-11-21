@@ -7,7 +7,15 @@ on:
     tags: ["v*"]
   workflow_dispatch:
   pull_request:
-    paths: ["packaging/**", ".github/workflows/build.yml", "requirements/**"]
+    paths:
+      - "packaging/**"
+      - ".github/workflows/build.yml"
+      - "requirements/**"
+      - "data/materials_library/**"
+      - "src/saltcav/materials.py"
+      - "src/saltcav/selftest.py"
+      - "src/saltcav/workspace.py"
+      - "tests/unit/test_workspace_selftest.py"
 
 jobs:
   windows:
@@ -30,9 +38,11 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          cd "$RUNNER_TEMP"
-          "$GITHUB_WORKSPACE/dist/saltcav/saltcav.exe" selftest --skip 3D-вид 2>&1 | tee selftest.txt
-          echo "::notice title=Самопроверка::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' selftest.txt)"
+          workdir=$(mktemp -d "$RUNNER_TEMP/saltcav-selftest.XXXXXX")
+          cd "$workdir"
+          unset PYTHONPATH
+          "$GITHUB_WORKSPACE/dist/saltcav/saltcav.exe" selftest --skip 3D-вид 2>&1 | tee "$RUNNER_TEMP/selftest.txt"
+          echo "::notice title=Самопроверка::$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' "$RUNNER_TEMP/selftest.txt")"
       - name: Журнал самопроверки при сбое
         if: failure()
         shell: bash

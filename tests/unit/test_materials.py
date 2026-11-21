@@ -7,7 +7,7 @@ import yaml
 from saltcav.materials import LibraryValidationError, load_library
 
 ROOT = Path(__file__).resolve().parents[2]
-FIXTURES = ROOT / "tests" / "fixtures" / "materials_library"
+FIXTURES = ROOT / "data" / "materials_library"
 FILENAMES = {"materials": "synthetic-rock.yaml", "fluids": "synthetic-fluid.yaml"}
 
 

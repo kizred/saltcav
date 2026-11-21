@@ -46,7 +46,7 @@ add("libiomp5md.dll" if WIN else "libiomp5.so")
 
 # --- данные --------------------------------------------------------------------------------
 datas = collect_data_files("saltcav")  # значки, руководство
-for rel in ("configs", "data/demo", "data/open", "examples", "schema"):
+for rel in ("configs", "data/demo", "data/open", "data/materials_library", "examples", "schema"):
     datas.append((str(ROOT / rel), rel))
 datas.append((str(ROOT / "LICENSE.txt"), "."))
 datas.append((str(ROOT / "benchmarks" / "sansmic" / "reference_direct.npz"), "benchmarks/sansmic"))

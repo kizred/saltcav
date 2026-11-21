@@ -4,7 +4,19 @@ from pathlib import Path
 
 import pytest
 
-from saltcav.workspace import bundled_root, ensure_workspace, frozen, sansmic_reference
+from saltcav.workspace import (
+    bundled_materials_library,
+    bundled_root,
+    ensure_workspace,
+    frozen,
+    sansmic_reference,
+)
+
+
+def _materials_only_skip() -> str:
+    from saltcav.selftest import checks
+
+    return ",".join(name for name, _ in checks(Path()) if name != "библиотека материалов")
 
 
 def test_workspace_copy(tmp_path: Path) -> None:
@@ -18,6 +30,51 @@ def test_workspace_copy(tmp_path: Path) -> None:
     cfg.write_text("# моя правка\n", encoding="utf-8")
     ensure_workspace(tmp_path / "ws")  # повторно — правки пользователя не затираются
     assert cfg.read_text(encoding="utf-8") == "# моя правка\n"
+
+
+def test_selftest_bundled_materials(capsys: pytest.CaptureFixture[str]) -> None:
+    from saltcav.cli import main
+
+    assert main(["selftest", "--skip", _materials_only_skip()]) == 0
+    out = capsys.readouterr().out
+    assert "библиотека материалов" in out and "OK" in out
+    assert "порода test-synthetic-rock, среда закачки test-synthetic-fluid" in out
+
+
+def test_selftest_missing_materials_resource(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from saltcav.cli import main
+
+    missing = tmp_path / "missing-materials-library"
+    monkeypatch.setattr("saltcav.workspace.bundled_materials_library", lambda: missing)
+
+    assert main(["selftest", "--skip", _materials_only_skip()]) == 1
+    out = capsys.readouterr().out
+    assert "библиотека материалов" in out and "СБОЙ" in out
+    assert str(missing) in out and "ожидается каталог библиотеки" in out
+
+
+@pytest.mark.parametrize(
+    ("category", "entry_id"),
+    [("materials", "test-synthetic-rock"), ("fluids", "test-synthetic-fluid")],
+)
+def test_selftest_missing_materials_entry(
+    category: str,
+    entry_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from saltcav.cli import main
+    from saltcav.materials import load_library
+
+    library = load_library(bundled_materials_library())
+    getattr(library, category).pop(entry_id)
+    monkeypatch.setattr("saltcav.materials.load_library", lambda _: library)
+
+    assert main(["selftest", "--skip", _materials_only_skip()]) == 1
+    out = capsys.readouterr().out
+    assert "СБОЙ" in out and "не найдена" in out and entry_id in out
 
 
 def test_selftest_quick(capsys: pytest.CaptureFixture[str]) -> None:

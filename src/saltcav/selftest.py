@@ -17,6 +17,25 @@ from typing import Any
 
 import numpy as np
 
+BUNDLED_MATERIAL_ID = "test-synthetic-rock"
+BUNDLED_FLUID_ID = "test-synthetic-fluid"
+
+
+def check_materials_library() -> str:
+    """Загрузить поставляемые записи тем же загрузчиком, что и пользовательские."""
+    from saltcav.materials import load_library
+    from saltcav.workspace import bundled_materials_library
+
+    root = bundled_materials_library()
+    library = load_library(root)
+    rock = library.materials.get(BUNDLED_MATERIAL_ID)
+    if rock is None:
+        raise RuntimeError(f"в библиотеке {root} не найдена порода {BUNDLED_MATERIAL_ID!r}")
+    fluid = library.fluids.get(BUNDLED_FLUID_ID)
+    if fluid is None:
+        raise RuntimeError(f"в библиотеке {root} не найдена среда {BUNDLED_FLUID_ID!r}")
+    return f"порода {rock.id}, среда закачки {fluid.id}"
+
 
 def _small_cfg() -> Any:
     import saltcav.api as sc
@@ -121,6 +140,7 @@ def checks(tmp: Path) -> list[tuple[str, Callable[[], str]]]:
         return "3D-вид камеры (VTK, OpenGL)"
 
     return [
+        ("библиотека материалов", check_materials_library),
         ("библиотеки", libs), ("PARDISO", pardiso), ("выщелачивание", leaching),
         ("ансамбль", ensemble), ("геомеханика 2D", mech2d), ("геомеханика 3D", mech3d),
         ("калибровка", calibration), ("отчёт", report), ("3D-вид", render),
