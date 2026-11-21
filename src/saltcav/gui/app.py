@@ -36,7 +36,11 @@ from saltcav.core.parallel import default_jobs
 from saltcav.gui.forms import ModelForm, ScalarEditor, ru_message
 from saltcav.gui.well import draw_well
 from saltcav.io.results import Results
-from saltcav.material_binding import InjectionFluidError, LayerMaterialError, resolve_layer_materials
+from saltcav.material_binding import (
+    InjectionFluidError,
+    LayerMaterialError,
+    resolve_layer_materials,
+)
 from saltcav.materials import LibraryValidationError, MaterialLibrary, load_library
 
 SECTIONS: tuple[tuple[str, str], ...] = (
@@ -214,22 +218,37 @@ class MainWindow(QtWidgets.QMainWindow):
         self.name_ed.widget.setProperty("saltcav_path", "name")
         top.addRow("Название расчёта", self.name_ed.widget)
         self.materials_library_ed = ScalarEditor(
-            "materials_library", RunConfig.model_fields["materials_library"], self._changed
+            "materials_library",
+            RunConfig.model_fields["materials_library"],
+            self._materials_library_changed,
         )
-        self.materials_library_ed.widget.setProperty("saltcav_path", "materials_library")
-        self.materials_library_ed.widget.textChanged.connect(self._refresh_material_choices)
-        top.addRow("Библиотека материалов", self.materials_library_ed.widget)
+        library_editor = self.materials_library_ed.widget
+        library_editor.setProperty("saltcav_path", "materials_library")
+        library_editor.textChanged.connect(self._refresh_material_choices)
+        library_row = QtWidgets.QWidget()
+        library_layout = QtWidgets.QHBoxLayout(library_row)
+        library_layout.setContentsMargins(0, 0, 0, 0)
+        library_layout.addWidget(library_editor, 1)
+        library_button = QtWidgets.QPushButton("…")
+        library_button.setToolTip("Выбрать корень библиотеки с каталогами materials/ и fluids/")
+        library_button.clicked.connect(self.choose_materials_library)
+        library_layout.addWidget(library_button)
+        top.addRow("Библиотека материалов и сред", library_row)
         ll.addLayout(top)
         self.section_tabs = QtWidgets.QTabWidget()
         self.forms: dict[str, ModelForm] = {}
         for key, title in SECTIONS:
             model = RunConfig.model_fields[key].annotation
-            form = ModelForm(model, self._changed, prefix=key)  # type: ignore[arg-type]
+            combo_fields = ("injection_fluid_id",) if key == "leaching" else ()
+            form = ModelForm(  # type: ignore[arg-type]
+                model, self._changed, prefix=key, combo_fields=combo_fields
+            )
             self.forms[key] = form
             scroll = QtWidgets.QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setWidget(form)
             self.section_tabs.addTab(scroll, title)
+        self._refresh_injection_fluids()
         ll.addWidget(self.section_tabs, 1)
 
         right = QtWidgets.QWidget()
@@ -472,6 +491,66 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # --- данные формы ---------------------------------------------------------------
 
+    def _materials_library_root(self) -> Path | None:
+        given, value = self.materials_library_ed.get()
+        if not given:
+            return None
+        root = Path(value)
+        if not root.is_absolute():
+            base = self.path.parent if self.path is not None else Path.cwd()
+            root = base / root
+        return root.resolve()
+
+    def choose_materials_library(self) -> None:
+        root = self._materials_library_root()
+        if root is None:
+            root = self.path.parent if self.path is not None else Path.cwd()
+        chosen = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Библиотека материалов и сред", str(root)
+        )
+        if chosen:
+            self.materials_library_ed.widget.setText(chosen)
+
+    def _materials_library_changed(self) -> None:
+        self._refresh_injection_fluids()
+        self._changed()
+
+    def _refresh_injection_fluids(self) -> None:
+        from saltcav.materials import LibraryValidationError, load_library
+
+        editor = self.forms["leaching"].scalars["injection_fluid_id"]
+        combo = editor.widget
+        given, selected = editor.get()
+        combo.blockSignals(True)
+        try:
+            combo.clear()
+            combo.addItem("Без привязки к библиотеке", "")
+            self.materials_library_ed.set_error(None)
+            root = self._materials_library_root()
+            if root is not None:
+                try:
+                    library = load_library(root)
+                except LibraryValidationError as exc:
+                    self.materials_library_ed.set_error(str(exc))
+                    self.statusBar().showMessage(str(exc), 10000)
+                else:
+                    for fluid_id, entry in sorted(library.fluids.items()):
+                        prop = entry.properties.get("mass_concentration")
+                        if prop is not None and (
+                            prop.quantity != "mass_concentration" or prop.unit != "kg/m3"
+                        ):
+                            continue
+                        combo.addItem(fluid_id, fluid_id)
+                        combo.setItemData(
+                            combo.count() - 1,
+                            f"{entry.name}\nВид: {entry.kind}",
+                            QtCore.Qt.ItemDataRole.ToolTipRole,
+                        )
+            index = combo.findData(selected) if given else 0
+            combo.setCurrentIndex(max(index, 0))
+        finally:
+            combo.blockSignals(False)
+
     def _refresh_material_choices(self, _text: str = "") -> None:
         given, root = self.materials_library_ed.get()
         self.material_library = None
@@ -509,6 +588,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def load_dict(self, data: dict[str, Any]) -> None:
         self.name_ed.set(data.get("name"))
         self.materials_library_ed.set(data.get("materials_library"))
+        self._refresh_injection_fluids()
         self._refresh_material_choices()
         for key, form in self.forms.items():
             form.set(data.get(key) or {})
