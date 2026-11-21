@@ -99,7 +99,9 @@ def _linked_case(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
         library, "fluids", FLUID, "nacl_brine", "mass_concentration", "mass_concentration",
         "kg/m3", 120.0, [0.0, 320.0],
     )  # fmt: skip
-    raw: dict[str, Any] = yaml.safe_load((ROOT / "configs" / "example_ledges.yaml").read_text("utf-8"))
+    raw: dict[str, Any] = yaml.safe_load(
+        (ROOT / "configs" / "example_ledges.yaml").read_text("utf-8")
+    )
     raw["materials_library"] = "../library"
     raw["geology"]["layers"] = [
         {"kind": "anhydrite", "top_m": 1030.0, "thickness_m": 1.25, "top_sd_m": 0.3},
@@ -267,6 +269,8 @@ def test_legacy_injection_parameters_survive_fluid_choice_and_reset(
     assert "injection_fluid_id" not in saved["leaching"]
     for name, value in explicit.items():
         assert saved["leaching"][name] == value
+
+
 def test_material_list_contains_only_library_rocks(win: Any, tmp_path: Path) -> None:
     path, _ = _linked_case(tmp_path)
     win.open_path(path)
