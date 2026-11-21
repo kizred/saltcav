@@ -26,6 +26,7 @@ from saltcav.core.parallel import blas_threads, default_jobs, process_pool
 from saltcav.core.rng import realization_rng
 from saltcav.geometry import Cavern, CavernGrid
 from saltcav.leaching.simulator import simulate
+from saltcav.material_binding import sampled_layer_property_ranges
 from saltcav.stochastic.sampling import (
     Realization,
     RealizationSampler,
@@ -224,6 +225,7 @@ def run_ensemble(
     seed = cfg.ensemble.seed if seed is None else seed
     if n < 1:
         raise ValueError("n ≥ 1")
+    sampled_layer_property_ranges(cfg)  # проверить правила до запуска расчётных процессов
     u = design(cfg, n, seed)
     tasks = [(cfg, seed, i, u[i]) for i in range(n)]
     jobs = default_jobs(jobs, n)
