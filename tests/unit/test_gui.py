@@ -21,6 +21,8 @@ from saltcav.core.config import RunConfig, load_config  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIGS = sorted((ROOT / "configs").glob("*.yaml"))
+LIBRARY = ROOT / "tests" / "fixtures" / "materials_library"
+FLUID_ID = "test-synthetic-fluid"
 
 
 @pytest.fixture(scope="module")
@@ -103,6 +105,90 @@ def test_save_and_reopen(win: Any, tmp_path: Path) -> None:
     win.open_path(out)
     assert win.cfg == cfg and not win.dirty
     assert win.windowTitle().endswith("case.yaml")
+
+
+def test_injection_fluid_choice_save_reopen_and_load(win: Any, tmp_path: Path) -> None:
+    raw = yaml.safe_load((ROOT / "configs" / "example.yaml").read_text(encoding="utf-8"))
+    raw["materials_library"] = str(LIBRARY)
+    source = tmp_path / "source.yaml"
+    source.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    win.open_path(source)
+
+    combo = win.forms["leaching"].scalars["injection_fluid_id"].widget
+    assert isinstance(combo, qtw.QComboBox)
+    assert [combo.itemData(i) for i in range(combo.count())] == ["", FLUID_ID]
+    assert combo.itemText(0) == "Без привязки к библиотеке"
+    combo.setCurrentIndex(combo.findData(FLUID_ID))
+
+    out = tmp_path / "gui-fluid.yaml"
+    assert win._write(out)
+    saved = yaml.safe_load(out.read_text(encoding="utf-8"))
+    assert saved["materials_library"] == str(LIBRARY)
+    assert saved["leaching"]["injection_fluid_id"] == FLUID_ID
+    assert "injection_concentration_kg_m3" not in saved["leaching"]
+    assert "properties" not in saved["leaching"]
+
+    manual_raw = yaml.safe_load(source.read_text(encoding="utf-8"))
+    manual_raw["leaching"] = {"injection_fluid_id": FLUID_ID}
+    manual = tmp_path / "manual-fluid.yaml"
+    manual.write_text(
+        yaml.safe_dump(manual_raw, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+    assert (
+        load_config(out).leaching.injection_fluid_id
+        == load_config(manual).leaching.injection_fluid_id
+    )
+
+    win.open_path(out)
+    assert combo.currentData() == FLUID_ID
+    assert combo.currentText() == FLUID_ID
+    assert not win.dirty
+
+
+def test_legacy_injection_parameters_survive_fluid_choice_and_reset(
+    win: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    raw = yaml.safe_load((ROOT / "configs" / "example.yaml").read_text(encoding="utf-8"))
+    explicit = {
+        "k0_m_per_s": 2.0e-5,
+        "injection_concentration_kg_m3": 37.0,
+        "plume": False,
+        "tubing_radius_m": 0.12,
+    }
+    raw["leaching"] = explicit
+    legacy = tmp_path / "legacy.yaml"
+    legacy.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    win.open_path(legacy)
+    combo = win.forms["leaching"].scalars["injection_fluid_id"].widget
+    assert combo.currentData() in (None, "")
+
+    unchanged = tmp_path / "unchanged.yaml"
+    win._write(unchanged)
+    saved = yaml.safe_load(unchanged.read_text(encoding="utf-8"))
+    assert "materials_library" not in saved
+    assert "injection_fluid_id" not in saved["leaching"]
+    for name, value in explicit.items():
+        assert saved["leaching"][name] == value
+
+    monkeypatch.setattr(
+        qtw.QFileDialog, "getExistingDirectory", lambda *args, **kwargs: str(LIBRARY)
+    )
+    win.choose_materials_library()
+    combo.setCurrentIndex(combo.findData(FLUID_ID))
+    selected = tmp_path / "selected.yaml"
+    win._write(selected)
+    saved = yaml.safe_load(selected.read_text(encoding="utf-8"))
+    assert saved["leaching"]["injection_fluid_id"] == FLUID_ID
+    for name, value in explicit.items():
+        assert saved["leaching"][name] == value
+
+    combo.setCurrentIndex(combo.findData(""))
+    reset = tmp_path / "reset.yaml"
+    win._write(reset)
+    saved = yaml.safe_load(reset.read_text(encoding="utf-8"))
+    assert "injection_fluid_id" not in saved["leaching"]
+    for name, value in explicit.items():
+        assert saved["leaching"][name] == value
 
 
 def test_runs_in_background(win: Any, tmp_path: Path) -> None:

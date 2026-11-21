@@ -132,12 +132,18 @@ def label_of(name: str, info: FieldInfo) -> str:
 class ScalarEditor:
     """Редактор одного значения: число, строка, выбор, флажок, пара чисел."""
 
-    def __init__(self, name: str, info: FieldInfo, on_change: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        name: str,
+        info: FieldInfo,
+        on_change: Callable[[], None],
+        choices: list[str] | None = None,
+    ) -> None:
         self.name = name
         self.info = info
         ann, self.optional = unwrap_optional(info.annotation)
         self.ann = ann
-        self.choices = choices_of(info, ann)
+        self.choices = choices_of(info, ann) if choices is None else choices
         self.required = info.is_required()
         tip = tooltip(name, info)
         if self.choices is not None:
@@ -172,7 +178,9 @@ class ScalarEditor:
                 text = (
                     "" if value is None else str(value.value if isinstance(value, Enum) else value)
                 )
-                i = w.findText(text)
+                i = w.findData(text)
+                if i < 0:
+                    i = w.findText(text)
                 w.setCurrentIndex(max(i, 0))
             elif isinstance(w, QtWidgets.QCheckBox):
                 w.setChecked(bool(value))
@@ -188,7 +196,8 @@ class ScalarEditor:
         значение по умолчанию модели."""
         w = self.widget
         if isinstance(w, QtWidgets.QComboBox):
-            t = w.currentText()
+            data = w.currentData()
+            t = w.currentText() if data is None else str(data)
             return (t != "", t if t != "" else None)
         if isinstance(w, QtWidgets.QCheckBox):
             return True, w.isChecked()
@@ -414,6 +423,7 @@ class ModelForm(QtWidgets.QWidget):
         on_change: Callable[[], None],
         skip: tuple[str, ...] = (),
         prefix: str = "",
+        combo_fields: tuple[str, ...] = (),
     ) -> None:
         super().__init__()
         self.model = model
@@ -454,7 +464,8 @@ class ModelForm(QtWidgets.QWidget):
                 self.tables[name] = tab
                 outer.addWidget(tab)
             else:
-                ed = ScalarEditor(name, info, on_change)
+                choices = [] if name in combo_fields else None
+                ed = ScalarEditor(name, info, on_change, choices=choices)
                 ed.widget.setProperty("saltcav_path", self._path(name))
                 self.scalars[name] = ed
                 lab = QtWidgets.QLabel(label_of(name, info))
