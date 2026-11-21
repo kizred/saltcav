@@ -131,7 +131,7 @@ class StageConfig(_Strict):
 
     duration_days: Annotated[float, Field(gt=0, description="Длительность ступени, сут")]
     mode: Annotated[LeachMode, Field(description="direct — прямоток, reverse — противоток")]
-    rate_m3_per_h: Annotated[float, Field(gt=0, description="Расход закачки пресной воды, м³/ч")]
+    rate_m3_per_h: Annotated[float, Field(gt=0, description="Расход закачки рабочей среды, м³/ч")]
     injection_depth_m: Annotated[
         float, Field(gt=0, description="Глубина башмака колонны закачки, м")
     ]

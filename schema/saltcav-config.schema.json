@@ -884,7 +884,7 @@
           "description": "direct — прямоток, reverse — противоток"
         },
         "rate_m3_per_h": {
-          "description": "Расход закачки пресной воды, м³/ч",
+          "description": "Расход закачки рабочей среды, м³/ч",
           "exclusiveMinimum": 0,
           "title": "Rate M3 Per H",
           "type": "number"

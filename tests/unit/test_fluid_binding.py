@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -5,8 +6,9 @@ import numpy as np
 import pytest
 import yaml
 
-from saltcav.core.config import dump_config, load_config
-from saltcav.leaching import simulate
+import saltcav.leaching.simulator as simulator
+from saltcav.core.config import RunConfig, dump_config, load_config
+from saltcav.leaching import History, simulate
 from saltcav.material_binding import InjectionFluidError
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +43,22 @@ def _write_case(tmp_path: Path, raw: dict[str, Any], name: str) -> Path:
     return path
 
 
+def _simulate_with_direct_c_in(
+    cfg: RunConfig, c_in: float, monkeypatch: pytest.MonkeyPatch
+) -> History:
+    def bind_c_in(function: Callable[..., Any]) -> Callable[..., Any]:
+        def call(*args: Any, **kwargs: Any) -> Any:
+            kwargs["c_in"] = c_in
+            return function(*args, **kwargs)
+
+        return call
+
+    with monkeypatch.context() as patch:
+        for name in ("plume_fluxes", "plume_transport_step", "column_step"):
+            patch.setattr(simulator, name, bind_c_in(getattr(simulator, name)))
+        return simulator.simulate(cfg)
+
+
 def test_unknown_injection_fluid_id_is_rejected(tmp_path: Path) -> None:
     fluid_id = "test-sc012-unknown-fluid"
     path = _write_case(tmp_path, _linked_raw(fluid_id), "unknown.yaml")
@@ -69,34 +87,41 @@ def test_rock_id_cannot_be_assigned_to_injection_fluid(tmp_path: Path) -> None:
     assert "fluids" in message
 
 
-def test_explicit_injection_concentration_has_priority(tmp_path: Path) -> None:
+@pytest.mark.parametrize("explicit_value", [25.0, 0.0])
+def test_explicit_injection_concentration_has_priority(
+    tmp_path: Path, explicit_value: float
+) -> None:
     raw = _linked_raw()
-    raw["leaching"]["injection_concentration_kg_m3"] = 25.0
+    raw["leaching"]["injection_concentration_kg_m3"] = explicit_value
 
     cfg = load_config(_write_case(tmp_path, raw, "priority.yaml"))
 
     assert cfg.leaching.injection_fluid_id == FLUID_ID
-    assert cfg.leaching.injection_concentration_kg_m3 == 25.0
+    assert cfg.leaching.injection_concentration_kg_m3 == explicit_value
 
 
-def test_fluid_reference_and_explicit_input_have_equivalent_results(tmp_path: Path) -> None:
-    linked_cfg = load_config(_write_case(tmp_path, _linked_raw(), "linked.yaml"))
-    explicit_raw = _raw()
-    explicit_raw["leaching"]["injection_concentration_kg_m3"] = CONCENTRATION
-    explicit_cfg = load_config(_write_case(tmp_path, explicit_raw, "explicit.yaml"))
+@pytest.mark.parametrize("plume", [True, False], ids=["plume", "column"])
+def test_fluid_reference_and_direct_model_input_have_equivalent_results(
+    tmp_path: Path, plume: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    linked_raw = _linked_raw()
+    linked_raw["leaching"]["plume"] = plume
+    linked_cfg = load_config(_write_case(tmp_path, linked_raw, "linked.yaml"))
+    direct_raw = _raw()
+    direct_raw["leaching"]["plume"] = plume
+    direct_cfg = load_config(_write_case(tmp_path, direct_raw, "direct.yaml"))
     assert linked_cfg.leaching.injection_concentration_kg_m3 == CONCENTRATION
+    assert "injection_concentration_kg_m3" not in direct_cfg.leaching.model_fields_set
 
     linked = simulate(linked_cfg)
-    explicit = simulate(explicit_cfg)
+    direct = _simulate_with_direct_c_in(direct_cfg, CONCENTRATION, monkeypatch)
 
     for name in ("radius", "volume", "concentration", "dissolved_salt", "produced_salt"):
         np.testing.assert_allclose(
-            getattr(linked, name), getattr(explicit, name), rtol=1e-12, atol=1e-12, err_msg=name
+            getattr(linked, name), getattr(direct, name), rtol=1e-12, atol=1e-12, err_msg=name
         )
 
-    control_raw = _raw()
-    control_raw["leaching"]["injection_concentration_kg_m3"] = 0.0
-    control = simulate(load_config(_write_case(tmp_path, control_raw, "control.yaml")))
+    control = _simulate_with_direct_c_in(direct_cfg, 0.0, monkeypatch)
     assert not np.allclose(linked.volume, control.volume, rtol=1e-6, atol=1e-6)
 
 
