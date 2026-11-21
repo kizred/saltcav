@@ -6,6 +6,7 @@
 
 import os
 import sys
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -17,10 +18,14 @@ if sys.platform.startswith("linux") and not os.environ.get("DISPLAY"):
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 qtw = pytest.importorskip("PySide6.QtWidgets")
 
+from saltcav.api import run  # noqa: E402
 from saltcav.core.config import RunConfig, load_config  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIGS = sorted((ROOT / "configs").glob("*.yaml"))
+ROCK_A = "test-sc014-anhydrite-a"
+ROCK_B = "test-sc014-anhydrite-b"
+FLUID = "test-sc014-fluid"
 
 
 @pytest.fixture(scope="module")
@@ -43,6 +48,79 @@ def win(app: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
     yield w
     w.dirty = False
     w.close()
+
+
+def _write_library_entry(
+    root: Path,
+    category: str,
+    entry_id: str,
+    kind: str,
+    property_name: str,
+    quantity: str,
+    unit: str,
+    value: float,
+    bounds: list[float],
+) -> None:
+    raw = {
+        "id": entry_id,
+        "name": f"Synthetic SC-014 {entry_id}; test data only",
+        "kind": kind,
+        "properties": {
+            property_name: {
+                "quantity": quantity,
+                "value": value,
+                "unit": unit,
+                "range": bounds,
+                "source": {
+                    "reference": "Synthetic SC-014 GUI test fixture; not a physical source",
+                    "location": "Not applicable — arbitrary synthetic test value",
+                },
+            }
+        },
+    }
+    path = root / category / f"{entry_id}.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+
+def _linked_case(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    library = tmp_path / "library"
+    _write_library_entry(
+        library, "materials", ROCK_A, "anhydrite", "critical_span", "length", "m", 2.0,
+        [0.1, 20.0],
+    )  # fmt: skip
+    _write_library_entry(
+        library, "materials", ROCK_B, "anhydrite", "critical_span", "length", "m", 4.0,
+        [0.1, 20.0],
+    )  # fmt: skip
+    _write_library_entry(
+        library, "fluids", FLUID, "nacl_brine", "mass_concentration", "mass_concentration",
+        "kg/m3", 120.0, [0.0, 320.0],
+    )  # fmt: skip
+    raw: dict[str, Any] = yaml.safe_load((ROOT / "configs" / "example_ledges.yaml").read_text("utf-8"))
+    raw["materials_library"] = "../library"
+    raw["geology"]["layers"] = [
+        {"kind": "anhydrite", "top_m": 1030.0, "thickness_m": 1.25, "top_sd_m": 0.3},
+        {"kind": "clay", "top_m": 1075.0, "thickness_m": 0.5, "thickness_sd_m": 0.1},
+        {
+            "kind": "anhydrite",
+            "material_id": ROCK_A,
+            "top_m": 1085.0,
+            "thickness_m": 0.75,
+            "critical_span_m": 7.0,
+            "material_overrides": {"critical_span": 6.0},
+        },
+    ]
+    path = tmp_path / "case" / "case.yaml"
+    path.parent.mkdir()
+    path.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    return path, raw
+
+
+def _material_combo(win: Any, row: int = 0) -> Any:
+    layers = win.forms["geology"].tables["layers"]
+    column = next(j for j, (name, _) in enumerate(layers.fields) if name == "material_id")
+    return layers.table.cellWidget(row, column)
 
 
 @pytest.mark.parametrize("path", CONFIGS, ids=lambda p: p.name)
@@ -103,6 +181,99 @@ def test_save_and_reopen(win: Any, tmp_path: Path) -> None:
     win.open_path(out)
     assert win.cfg == cfg and not win.dirty
     assert win.windowTitle().endswith("case.yaml")
+
+
+def test_material_list_contains_only_library_rocks(win: Any, tmp_path: Path) -> None:
+    path, _ = _linked_case(tmp_path)
+    win.open_path(path)
+
+    combo = _material_combo(win)
+    ids = [combo.itemData(i) for i in range(combo.count())]
+
+    assert ids == [None, ROCK_A, ROCK_B]
+    assert FLUID not in ids
+    assert combo.currentData() is None
+    assert _material_combo(win, 2).currentData() == ROCK_A
+    assert win.cfg is not None
+
+
+def test_material_selection_and_clear_roundtrip(win: Any, tmp_path: Path) -> None:
+    path, raw = _linked_case(tmp_path)
+    original_layers = deepcopy(raw["geology"]["layers"])
+    win.open_path(path)
+
+    combo = _material_combo(win)
+    combo.setCurrentIndex(combo.findData(ROCK_B))
+    assert win._write(path)
+    saved = yaml.safe_load(path.read_text(encoding="utf-8"))
+    expected_layers = deepcopy(original_layers)
+    expected_layers[0]["material_id"] = ROCK_B
+    assert saved["geology"]["layers"] == expected_layers
+    assert "critical_span_m" not in saved["geology"]["layers"][0]
+    assert win.validate() is not None
+    assert win.cfg.geology.layers[0].critical_span_m == pytest.approx(4.0)
+
+    win.open_path(path)
+    combo = _material_combo(win)
+    assert combo.currentData() == ROCK_B
+    combo.setCurrentIndex(combo.findData(None))
+    assert win._write(path)
+    saved = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert saved["geology"]["layers"] == original_layers
+
+    win.open_path(path)
+    assert _material_combo(win).currentData() is None
+    assert win.validate() is not None
+
+
+def test_unknown_material_id_is_shown_and_preserved(win: Any, tmp_path: Path) -> None:
+    path, raw = _linked_case(tmp_path)
+    unknown = "test-sc014-unknown"
+    raw["geology"]["layers"][1]["material_id"] = unknown
+    path.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    win.open_path(path)
+
+    assert win.validate() is None
+    messages = [win.errors.item(i).text() for i in range(win.errors.count())]
+    assert any("geology.layers.1.material_id" in message for message in messages)
+    assert any(unknown in message and "неизвестный id" in message for message in messages)
+    combo = _material_combo(win, 1)
+    assert combo.currentData() == unknown
+    assert unknown in combo.currentText()
+    assert win._write(path)
+    saved = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert saved["geology"]["layers"][1]["material_id"] == unknown
+
+    win.open_path(path)
+    assert win.validate() is None
+    assert _material_combo(win, 1).currentData() == unknown
+
+
+def test_legacy_config_gui_roundtrip_preserves_results(win: Any, tmp_path: Path) -> None:
+    raw: dict[str, Any] = yaml.safe_load((ROOT / "configs" / "example.yaml").read_text("utf-8"))
+    raw["grid"]["nz"] = 50
+    for stage, days in zip(raw["schedule"]["stages"], (20.0, 60.0), strict=True):
+        stage["duration_days"] = days
+    path = tmp_path / "legacy.yaml"
+    path.write_text(yaml.safe_dump(raw, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    expected = run(load_config(path))
+
+    win.open_path(path)
+    assert _material_combo(win).currentData() is None
+    assert win._write(path)
+    saved = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert "materials_library" not in saved
+    assert all("material_id" not in layer for layer in saved["geology"]["layers"])
+    actual = run(load_config(path))
+
+    for name in ("radius", "volume", "floor_depth", "dissolved_salt", "produced_salt"):
+        np.testing.assert_allclose(
+            getattr(actual, name), getattr(expected, name), rtol=1e-12, atol=1e-12, err_msg=name
+        )
+    win.open_path(path)
+    assert _material_combo(win).currentData() is None
+    assert win.cfg == load_config(path)
 
 
 def test_runs_in_background(win: Any, tmp_path: Path) -> None:

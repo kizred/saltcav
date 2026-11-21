@@ -17,6 +17,7 @@ import re
 import textwrap
 import types
 from collections.abc import Callable
+from copy import deepcopy
 from enum import Enum
 from typing import Any, Union, get_args, get_origin
 
@@ -232,6 +233,10 @@ class ListTable(QtWidgets.QWidget):
                 and field.json_schema_extra.get("readOnly") is True
             )
         ]
+        visible = {name for name, _ in self.fields}
+        self.read_only_fields = [name for name in item.model_fields if name not in visible]
+        self.value_choices: dict[str, list[tuple[str, Any]]] = {}
+        self._source_rows: list[dict[str, Any]] = []
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         title = QtWidgets.QLabel(f"<b>{label_of(name, info)}</b>")
@@ -265,11 +270,25 @@ class ListTable(QtWidgets.QWidget):
         bar.addStretch(1)
         lay.addLayout(bar)
 
+    def set_value_choices(self, field: str, choices: list[tuple[str, Any]]) -> None:
+        """Задать подписи и сохраняемые значения для ячеек одного столбца."""
+        if field not in self.item.model_fields:
+            raise KeyError(field)
+        rows = self.get()
+        self.value_choices[field] = choices
+        self.set(rows)
+
     def _cell_widget(self, row: int, j: int) -> None:
-        _fname, finfo = self.fields[j]
+        fname, finfo = self.fields[j]
         ann, optional = unwrap_optional(finfo.annotation)
         ch = choices_of(finfo, ann)
-        if ch is not None:
+        if fname in self.value_choices:
+            cb = QtWidgets.QComboBox()
+            for text, value in self.value_choices[fname]:
+                cb.addItem(text, value)
+            cb.currentIndexChanged.connect(lambda _: self.on_change())
+            self.table.setCellWidget(row, j, cb)
+        elif ch is not None:
             cb = QtWidgets.QComboBox()
             if optional:
                 cb.addItem("")
@@ -290,7 +309,14 @@ class ListTable(QtWidgets.QWidget):
             w = self.table.cellWidget(row, j)
             if isinstance(w, QtWidgets.QComboBox):
                 w.blockSignals(True)
-                w.setCurrentIndex(max(w.findText("" if v is None else str(v)), 0))
+                if fname in self.value_choices:
+                    index = w.findData(v)
+                    if index < 0 and v is not None:
+                        w.addItem(f"{v} — неизвестный идентификатор", v)
+                        index = w.findData(v)
+                    w.setCurrentIndex(max(index, 0))
+                else:
+                    w.setCurrentIndex(max(w.findText("" if v is None else str(v)), 0))
                 w.blockSignals(False)
             else:
                 it = self.table.item(row, j)
@@ -302,6 +328,7 @@ class ListTable(QtWidgets.QWidget):
                     it.setText("" if v is None else format_number(v))
 
     def set(self, rows: list[dict[str, Any]]) -> None:
+        self._source_rows = deepcopy(rows)
         self.table.blockSignals(True)
         self.table.setRowCount(0)
         for values in rows:
@@ -322,9 +349,14 @@ class ListTable(QtWidgets.QWidget):
                 ann, _optional = unwrap_optional(finfo.annotation)
                 w = self.table.cellWidget(r, j)
                 if isinstance(w, QtWidgets.QComboBox):
-                    t = w.currentText()
-                    if t:
-                        row[fname] = t
+                    if fname in self.value_choices:
+                        value = w.currentData()
+                        if value is not None and value != "":
+                            row[fname] = value
+                    else:
+                        t = w.currentText()
+                        if t:
+                            row[fname] = t
                     continue
                 it = self.table.item(r, j)
                 if ann is bool:
@@ -336,6 +368,11 @@ class ListTable(QtWidgets.QWidget):
                         row[fname] = None
                     continue
                 row[fname] = parse_number(text, ann is int) if ann in (int, float) else text
+            if r < len(self._source_rows):
+                source = self._source_rows[r]
+                for fname in self.read_only_fields:
+                    if fname in source:
+                        row[fname] = deepcopy(source[fname])
             out.append(row)
         return out
 
