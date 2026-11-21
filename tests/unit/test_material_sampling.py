@@ -24,6 +24,14 @@ ENSEMBLE_EXAMPLE = ROOT / "configs" / "example_ensemble.yaml"
 MATERIAL_ID = "test-sc013-synthetic-anhydrite"
 BOUNDS = (1.0, 4.0)
 SOURCE = "Synthetic SC-013 sampling test fixture; not a physical source"
+REGRESSION_REF = Path(__file__).with_name("data") / "ensemble_regression_ref.npz"
+QUANTIZED_DIGESTS = {
+    "single_radius": "485600605b9bfcaa8d2475b11a12a090480be0b6f22310cf7871c16a08a706f7",
+    "single_volume": "7dbc3f44c18806b3dc3180acc0a1fa7d677d2a2c908fb7c97300901114a4526c",
+    "ensemble_radius": "05ada74d57ca533ed305f1bcd23720dcd3899a0794deeca34e219352a96f79b6",
+    "ensemble_volume_t": "630e64b45572e0fdf1921d8af43a669f3f6bd89859ede15cc56959116e1d21c2",
+    "ensemble_params": "1ec6c86acc1631f8725d3a0aea4252765cd608d0a72820cacdca285d5f7d3ffc",
+}
 
 
 def _numeric_property(
@@ -100,8 +108,10 @@ def _write_case(tmp_path: Path, raw: dict[str, Any], name: str = "case.yaml") ->
     return path
 
 
-def _array_digest(array: np.ndarray) -> str:
-    return hashlib.sha256(np.ascontiguousarray(array).tobytes()).hexdigest()
+def _quantized_array_digest(array: np.ndarray) -> str:
+    a = np.asarray(array)
+    q = np.round(a / max(1.0, float(np.max(np.abs(a)))) * 1e9).astype(np.int64)
+    return hashlib.sha256(q.tobytes()).hexdigest()
 
 
 def test_sampling_is_seeded_local_and_matches_explicit_single_run(tmp_path: Path) -> None:
@@ -266,24 +276,19 @@ def test_legacy_single_and_fixed_seed_ensemble_regression() -> None:
     single = simulate(cfg)
     ensemble = run_ensemble(cfg, n=4, seed=11, jobs=1)
 
-    # SC-020: прежние эталоны зависели от версии и процессорного ядра OpenBLAS
-    # в polyfit, solve/cholesky и матричных произведениях; теперь эти операции
-    # выполняются с фиксированным порядком вычислений, без BLAS/LAPACK.
-    assert _array_digest(single.radius[-1]) == (
-        "d7e6e0ae71e4567f749a10a97566c4192b171bc52303e13cf9162a43bc5b240d"
-    )
-    assert _array_digest(single.volume) == (
-        "953775c828b6b4cbb7753dfdf50e93bd8ac3098e79ae1e61cffc73aa82a13897"
-    )
-    assert _array_digest(ensemble.radius) == (
-        "8bf8888fa062e5d123465e8844e0fb22e8ee4fc706d172f3269fba433daf2f49"
-    )
-    assert _array_digest(ensemble.volume_t) == (
-        "f94c16644e9b0b600cd52c4d0d18287cbabeb8d576c9b594ec549a7c244e4705"
-    )
-    assert _array_digest(ensemble.params) == (
-        "dea99f4a269fb0bc8bcd8a54f3b68b14d86adf730f0ca6c58812af53e31b514d"
-    )
+    # SC-020: младшие биты зависят от сборки NumPy/BLAS и процессора. Сравнение
+    # с допуском показывает величину расхождения, квантованный SHA-256 — регрессии.
+    actual_arrays = {
+        "single_radius": single.radius[-1],
+        "single_volume": single.volume,
+        "ensemble_radius": ensemble.radius,
+        "ensemble_volume_t": ensemble.volume_t,
+        "ensemble_params": ensemble.params,
+    }
+    with np.load(REGRESSION_REF) as reference:
+        for name, actual in actual_arrays.items():
+            np.testing.assert_allclose(actual, reference[name], rtol=2e-6, atol=1e-9, err_msg=name)
+            assert _quantized_array_digest(actual) == QUANTIZED_DIGESTS[name], name
     assert ensemble.param_names == [
         "k0",
         "roof_ratio",
