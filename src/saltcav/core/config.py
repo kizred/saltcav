@@ -15,7 +15,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from saltcav.core import units
-from saltcav.materials import PropertySource
+from saltcav.materials import FiniteFloat, PropertySource
 
 
 class _Strict(BaseModel):
@@ -80,6 +80,11 @@ class LayerConfig(_Strict):
             gt=0, description="Критический вылет карниза, м; пусто — ledge_span_ratio × мощность"
         ),
     ] = None
+    material_overrides: dict[str, FiniteFloat] = Field(
+        default_factory=dict,
+        description="Локальные значения свойств material_id в СИ; поддерживается critical_span, м",
+        json_schema_extra={"readOnly": True},
+    )
     material_sources: dict[str, PropertySource] = Field(
         default_factory=dict,
         description="Источники значений, применённых из material_id; заполняет load_config",

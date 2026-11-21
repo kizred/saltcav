@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from saltcav.api import run
 from saltcav.cli import main
@@ -180,12 +181,68 @@ def test_explicit_layer_value_has_priority(tmp_path: Path) -> None:
     _write_entry(tmp_path / "library")
     raw = _raw()
     raw["geology"]["layers"][0]["critical_span_m"] = 7.0
+    raw["geology"]["layers"][0]["material_overrides"] = {"critical_span": 5.0}
     path = _write_case(tmp_path, raw)
 
     layer = load_config(path).geology.layers[0]
 
     assert layer.critical_span_m == 7.0
     assert "critical_span_m" not in layer.material_sources
+
+
+def test_unknown_override_property_is_an_error(tmp_path: Path) -> None:
+    _write_entry(tmp_path / "library")
+    raw = _raw()
+    raw["geology"]["layers"][0]["material_overrides"] = {"density": 2200.0}
+    path = _write_case(tmp_path, raw)
+
+    message = _error(path)
+
+    assert str(path) in message
+    assert "geology.layers.0.material_overrides.density" in message
+    assert "неизвестное или неподдерживаемое свойство" in message
+    assert "critical_span" in message
+
+
+@pytest.mark.parametrize("value", [0.0, -1.0])
+def test_invalid_override_value_is_an_error(tmp_path: Path, value: float) -> None:
+    _write_entry(tmp_path / "library")
+    raw = _raw()
+    raw["geology"]["layers"][0]["material_overrides"] = {"critical_span": value}
+    path = _write_case(tmp_path, raw)
+
+    message = _error(path)
+
+    assert str(path) in message
+    assert "geology.layers.0.material_overrides.critical_span" in message
+    assert "не прошло проверку" in message
+
+
+@pytest.mark.parametrize("value", [True, None, "invalid", float("nan"), float("inf")])
+def test_non_finite_or_non_numeric_override_is_an_error(tmp_path: Path, value: Any) -> None:
+    _write_entry(tmp_path / "library")
+    raw = _raw()
+    raw["geology"]["layers"][0]["material_overrides"] = {"critical_span": value}
+    path = _write_case(tmp_path, raw)
+
+    with pytest.raises(ValidationError) as caught:
+        load_config(path)
+
+    message = str(caught.value)
+    assert "geology.layers.0.material_overrides.critical_span" in message
+
+
+def test_override_requires_a_material(tmp_path: Path) -> None:
+    raw = _raw()
+    layer = raw["geology"]["layers"][0]
+    del layer["material_id"]
+    layer["material_overrides"] = {"critical_span": 6.0}
+    path = _write_case(tmp_path, raw)
+
+    message = _error(path)
+
+    assert "geology.layers.0.material_overrides.critical_span" in message
+    assert "material_id" in message
 
 
 def test_explicit_null_is_filled_and_missing_property_uses_old_default(tmp_path: Path) -> None:
@@ -205,7 +262,7 @@ def test_explicit_null_is_filled_and_missing_property_uses_old_default(tmp_path:
     assert interlayers[0].critical_span == cfg.geology.ledge_span_ratio * layer.thickness_m
 
 
-def test_two_layers_do_not_mutate_shared_library_entry(
+def test_two_layers_with_local_override_do_not_mutate_shared_library_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "library"
@@ -216,15 +273,22 @@ def test_two_layers_do_not_mutate_shared_library_entry(
     raw = _raw()
     first = raw["geology"]["layers"][0]
     second = {**first, "top_m": 1075.0, "thickness_m": 0.5}
-    first["critical_span_m"] = 6.0
+    first["material_overrides"] = {"critical_span": 6.0}
     raw["geology"]["layers"] = [first, second]
 
-    layers = load_config(_write_case(tmp_path, raw)).geology.layers
+    cfg = load_config(_write_case(tmp_path, raw))
+    layers = cfg.geology.layers
 
     assert [layer.critical_span_m for layer in layers] == [6.0, 2.0]
+    assert layers[0].material_overrides == {"critical_span": 6.0}
+    assert layers[1].material_overrides == {}
     assert library.materials[MATERIAL_ID].model_dump_json() == before
     assert "critical_span_m" not in layers[0].material_sources
     assert layers[1].material_sources["critical_span_m"].reference == SOURCE
+
+    dumped = _write_case(tmp_path, {}, "dumped.yaml")
+    dump_config(cfg, dumped)
+    assert load_config(dumped) == cfg
 
 
 def test_relative_library_path_does_not_depend_on_cwd(
@@ -322,3 +386,61 @@ def test_reference_and_explicit_properties_have_equivalent_results(tmp_path: Pat
     del fallback_raw["geology"]["layers"][0]["critical_span_m"]
     fallback = run(_write_case(tmp_path, fallback_raw, "fallback.yaml"))
     assert not np.allclose(linked.radius, fallback.radius, rtol=1e-9, atol=1e-9)
+
+
+def test_local_override_matches_explicit_reference_in_two_layer_run(tmp_path: Path) -> None:
+    _write_entry(tmp_path / "library")
+    override_raw = _raw()
+    first = override_raw["geology"]["layers"][0]
+    second = {
+        "kind": "anhydrite",
+        "material_id": MATERIAL_ID,
+        "top_m": 1075.0,
+        "thickness_m": 0.5,
+    }
+    first["material_overrides"] = {"critical_span": 6.0}
+    override_raw["geology"]["layers"] = [first, second]
+    override_raw["grid"]["nz"] = 50
+    for stage, days in zip(override_raw["schedule"]["stages"], (20.0, 60.0), strict=True):
+        stage["duration_days"] = days
+
+    reference_raw = deepcopy(override_raw)
+    for layer, value in zip(reference_raw["geology"]["layers"], (6.0, 2.0), strict=True):
+        del layer["material_id"]
+        layer.pop("material_overrides", None)
+        layer["critical_span_m"] = value
+    del reference_raw["materials_library"]
+
+    inherited_raw = deepcopy(override_raw)
+    del inherited_raw["geology"]["layers"][0]["material_overrides"]
+
+    override_cfg = load_config(_write_case(tmp_path, override_raw, "override.yaml"))
+    reference_cfg = load_config(_write_case(tmp_path, reference_raw, "reference.yaml"))
+    inherited_cfg = load_config(_write_case(tmp_path, inherited_raw, "inherited.yaml"))
+    assert [layer.critical_span_m for layer in override_cfg.geology.layers] == [6.0, 2.0]
+    assert [layer.critical_span_m for layer in inherited_cfg.geology.layers] == [2.0, 2.0]
+
+    override_params = override_cfg.model_dump(mode="json")
+    reference_params = reference_cfg.model_dump(mode="json")
+    for params in (override_params, reference_params):
+        params.pop("materials_library")
+        for layer_params in params["geology"]["layers"]:
+            layer_params.pop("material_id")
+            layer_params.pop("material_overrides")
+            layer_params.pop("material_sources")
+    assert override_params == reference_params
+
+    overridden = run(override_cfg)
+    reference = run(reference_cfg)
+    inherited = run(inherited_cfg)
+
+    assert overridden.collapses.size > 0
+    for name in ("radius", "volume", "floor_depth", "dissolved_salt", "produced_salt"):
+        np.testing.assert_allclose(
+            getattr(overridden, name),
+            getattr(reference, name),
+            rtol=1e-12,
+            atol=1e-12,
+            err_msg=name,
+        )
+    assert not np.allclose(overridden.radius, inherited.radius, rtol=1e-9, atol=1e-9)

@@ -379,6 +379,15 @@
           "description": "Критический вылет карниза, м; пусто — ledge_span_ratio × мощность",
           "title": "Critical Span M"
         },
+        "material_overrides": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Локальные значения свойств material_id в СИ; поддерживается critical_span, м",
+          "readOnly": true,
+          "title": "Material Overrides",
+          "type": "object"
+        },
         "material_sources": {
           "additionalProperties": {
             "$ref": "#/$defs/PropertySource"
