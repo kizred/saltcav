@@ -266,17 +266,20 @@ def test_legacy_single_and_fixed_seed_ensemble_regression() -> None:
     single = simulate(cfg)
     ensemble = run_ensemble(cfg, n=4, seed=11, jobs=1)
 
+    # SC-020: прежние эталоны зависели от версии и процессорного ядра OpenBLAS
+    # в polyfit, solve/cholesky и матричных произведениях; теперь эти операции
+    # выполняются с фиксированным порядком вычислений, без BLAS/LAPACK.
     assert _array_digest(single.radius[-1]) == (
-        "7491daf7ef8252208c03842b353518c6760c8e627b3e0a678528ed630dc861c9"
+        "d7e6e0ae71e4567f749a10a97566c4192b171bc52303e13cf9162a43bc5b240d"
     )
     assert _array_digest(single.volume) == (
-        "e15739e5be06ddd44ac2335f610b8c1d2b471ea3262fa7624dc1925449e449a7"
+        "953775c828b6b4cbb7753dfdf50e93bd8ac3098e79ae1e61cffc73aa82a13897"
     )
     assert _array_digest(ensemble.radius) == (
-        "e354db8823c0f5cea8ac500d77931a6891778fe1b49309dad5c6d8aaeb749944"
+        "8bf8888fa062e5d123465e8844e0fb22e8ee4fc706d172f3269fba433daf2f49"
     )
     assert _array_digest(ensemble.volume_t) == (
-        "8c61425edc3fce0e7b183ae978b2436bd5d4cc514a31acdc386499319f72067d"
+        "f94c16644e9b0b600cd52c4d0d18287cbabeb8d576c9b594ec549a7c244e4705"
     )
     assert _array_digest(ensemble.params) == (
         "dea99f4a269fb0bc8bcd8a54f3b68b14d86adf730f0ca6c58812af53e31b514d"

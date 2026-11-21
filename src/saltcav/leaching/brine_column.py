@@ -28,6 +28,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import fsum
 
 import numpy as np
 from numpy.typing import NDArray
@@ -128,6 +129,46 @@ def column_step(
     return TransportResult(stabilize(res.c, v_new), res.produced_salt, res.q_out)
 
 
+def _solve_rank_one_tridiagonal(
+    lower: FloatArray,
+    diagonal: FloatArray,
+    upper: FloatArray,
+    rhs: FloatArray,
+    k_deposit: int,
+    row: FloatArray,
+) -> FloatArray:
+    """Решение трёхдиагональной системы с одной дополнительной строкой без BLAS."""
+    lo = [float(v) for v in lower]
+    diag = [float(v) for v in diagonal]
+    up = [float(v) for v in upper]
+    values = [float(v) for v in rhs]
+    row_values = [float(v) for v in row]
+    n = len(diag)
+    c_prime = [0.0] * n
+    base = [0.0] * n
+    correction = [0.0] * n
+    pivot = diag[0]
+    c_prime[0] = up[0] / pivot if n > 1 else 0.0
+    base[0] = values[0] / pivot
+    correction[0] = (1.0 if k_deposit == 0 else 0.0) / pivot
+    for k in range(1, n):
+        pivot = diag[k] - lo[k] * c_prime[k - 1]
+        c_prime[k] = up[k] / pivot if k < n - 1 else 0.0
+        base[k] = (values[k] - lo[k] * base[k - 1]) / pivot
+        unit = 1.0 if k == k_deposit else 0.0
+        correction[k] = (unit - lo[k] * correction[k - 1]) / pivot
+    for k in range(n - 2, -1, -1):
+        base[k] -= c_prime[k] * base[k + 1]
+        correction[k] -= c_prime[k] * correction[k + 1]
+    numerator = fsum(a * b for a, b in zip(row_values, base, strict=True))
+    denominator = 1.0 + fsum(a * b for a, b in zip(row_values, correction, strict=True))
+    factor = numerator / denominator
+    return np.asarray(
+        [value - factor * delta for value, delta in zip(base, correction, strict=True)],
+        dtype=np.float64,
+    )
+
+
 def plume_transport_step(
     c: FloatArray,
     v_old: FloatArray,
@@ -180,17 +221,16 @@ def plume_transport_step(
     for k in range(n - 1, 0, -1):
         f_up[k] = f_up[k + 1] + inflow[k] - outflow[k] - (v_new[k] - v_old[k]) / dt
 
-    a = np.zeros((n, n))
     up = np.maximum(f_up[:n], 0.0)  # из k вверх
     down = np.maximum(-f_up[1:], 0.0)  # из k вниз (через его дно)
-    idx = np.arange(n)
-    a[idx, idx] = v_new + dt * (outflow + up + down)
-    a[idx[:-1], idx[1:]] -= dt * np.maximum(f_up[1:n], 0.0)  # приток снизу
-    a[idx[1:], idx[:-1]] -= dt * np.maximum(-f_up[1:n], 0.0)  # приток сверху
-    a[k_deposit, :] -= dt * e  # смесь несёт вовлечённую соль
+    lower = np.zeros(n)
+    upper = np.zeros(n)
+    diagonal = v_new + dt * (outflow + up + down)
+    upper[:-1] = -dt * np.maximum(f_up[1:n], 0.0)  # приток снизу
+    lower[1:] = -dt * np.maximum(-f_up[1:n], 0.0)  # приток сверху
     rhs = v_old * c + dm
     rhs[k_deposit] += dt * q_in * c_in
 
-    c_new = np.linalg.solve(a, rhs)
+    c_new = _solve_rank_one_tridiagonal(lower, diagonal, upper, rhs, k_deposit, -dt * e)
     produced = dt * q_out * float(c_new[k_out])
     return TransportResult(np.asarray(c_new, dtype=np.float64), produced, q_out)
