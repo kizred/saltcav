@@ -1,10 +1,11 @@
 """Реализации неопределённости: скалярные параметры и поля свойств стенки.
 
 Скалярные параметры реализации (k0, кровля/стенка, критический вылет карниза,
-расход по ступеням, положение и мощность прослоев) берутся из плана эксперимента —
-матрицы U (n × d) равномерных чисел в [0, 1): Монте-Карло, латинский гиперкуб или
-последовательность Соболя. Поля по (z, φ) многомерны, для них квази-Монте-Карло
-бессмысленно — они всегда Монте-Карло от генератора реализации.
+расход по ступеням, положение и мощность прослоев, выбранные свойства библиотечных
+материалов) берутся из плана эксперимента — матрицы U (n × d) равномерных чисел
+в [0, 1): Монте-Карло, латинский гиперкуб или последовательность Соболя. Поля по (z, φ)
+многомерны, для них квази-Монте-Карло бессмысленно — они всегда Монте-Карло от генератора
+реализации.
 
 Реализация i полностью определяется (конфигурация, seed, i): строка U[i] и
 генератор ``realization_rng(seed, i)`` не зависят от числа процессов.
@@ -22,6 +23,7 @@ from scipy.stats import qmc
 from saltcav.core.config import RunConfig
 from saltcav.geometry import CavernGrid
 from saltcav.leaching.properties import WallProperties
+from saltcav.material_binding import layer_property_field, sampled_layer_property_ranges
 from saltcav.stochastic.fields import GaussianField, bounded_fraction, lognormal_multiplier
 
 FloatArray = NDArray[np.float64]
@@ -38,6 +40,7 @@ def parameter_names(cfg: RunConfig) -> list[str]:
     ]
     for k, _ in enumerate(cfg.geology.layers):
         names += [f"layer{k}_top", f"layer{k}_thickness"]
+    names += [f"layer{rule.layer}_{rule.property}" for rule in cfg.ensemble.layer_properties]
     return names
 
 
@@ -69,6 +72,7 @@ class RealizationSampler:
     def __init__(self, cfg: RunConfig) -> None:
         self.cfg = cfg
         self.grid = CavernGrid.from_config(cfg.grid)
+        self.layer_property_ranges = sampled_layer_property_ranges(cfg)
         unc = cfg.uncertainty
         self.field = GaussianField(
             self.grid.z_edges,
@@ -107,6 +111,15 @@ class RealizationSampler:
                 layer["critical_span_m"] = layer["critical_span_m"] * ledge_mult
             params += [layer["top_m"], layer["thickness_m"]]
             col += 2
+
+        for rule, (lo, hi) in zip(
+            cfg.ensemble.layer_properties, self.layer_property_ranges, strict=True
+        ):
+            value = lo + (hi - lo) * float(u_row[col])
+            field_name = layer_property_field(rule.property)
+            geo["layers"][rule.layer][field_name] = value
+            params.append(value)
+            col += 1
 
         cfg_i = RunConfig.model_validate(raw)
         base = WallProperties.from_config(cfg_i.geology, self.grid)  # прослои уже обнулены

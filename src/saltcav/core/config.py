@@ -165,6 +165,19 @@ class ScheduleConfig(_Strict):
     ]
 
 
+class LayerPropertySampleConfig(_Strict):
+    """Свойство библиотечного материала слоя, выбираемое из его диапазона."""
+
+    layer: Annotated[int, Field(ge=0, description="Индекс слоя в geology.layers, начиная с нуля")]
+    property: Annotated[
+        str,
+        Field(
+            pattern=r"^[a-z][a-z0-9_]*$",
+            description="Имя свойства записи материала; поддерживается critical_span",
+        ),
+    ]
+
+
 class EnsembleConfig(_Strict):
     """Ансамбль Монте-Карло (saltcav ensemble)."""
 
@@ -176,6 +189,10 @@ class EnsembleConfig(_Strict):
         default="mc",
         pattern="^(mc|lhs|sobol)$",
         description="План: mc — Монте-Карло, lhs — латинский гиперкуб, sobol — Соболь",
+    )
+    layer_properties: list[LayerPropertySampleConfig] = Field(
+        default_factory=list,
+        description="Свойства слоёв, равномерно выбираемые из range их material_id",
     )
 
 

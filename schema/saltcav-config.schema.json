@@ -193,6 +193,14 @@
           "pattern": "^(mc|lhs|sobol)$",
           "title": "Sampler",
           "type": "string"
+        },
+        "layer_properties": {
+          "description": "Свойства слоёв, равномерно выбираемые из range их material_id",
+          "items": {
+            "$ref": "#/$defs/LayerPropertySampleConfig"
+          },
+          "title": "Layer Properties",
+          "type": "array"
         }
       },
       "title": "EnsembleConfig",
@@ -458,6 +466,30 @@
         "tensile_strength_mpa"
       ],
       "title": "LayerMaterialConfig",
+      "type": "object"
+    },
+    "LayerPropertySampleConfig": {
+      "additionalProperties": false,
+      "description": "Свойство библиотечного материала слоя, выбираемое из его диапазона.",
+      "properties": {
+        "layer": {
+          "description": "Индекс слоя в geology.layers, начиная с нуля",
+          "minimum": 0,
+          "title": "Layer",
+          "type": "integer"
+        },
+        "property": {
+          "description": "Имя свойства записи материала; поддерживается critical_span",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Property",
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer",
+        "property"
+      ],
+      "title": "LayerPropertySampleConfig",
       "type": "object"
     },
     "LeachMode": {
@@ -1198,7 +1230,8 @@
       "default": {
         "n_realizations": 100,
         "seed": 12345,
-        "sampler": "mc"
+        "sampler": "mc",
+        "layer_properties": []
       }
     },
     "mechanics": {

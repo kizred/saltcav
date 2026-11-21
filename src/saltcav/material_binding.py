@@ -54,6 +54,158 @@ def _library_error_field(exc: LibraryValidationError) -> str:
     return "material_id"
 
 
+def _library_error_layer(cfg: RunConfig, exc: LibraryValidationError, default: int) -> int:
+    parts = exc.field.split(".")
+    if len(parts) >= 2 and parts[0] == "properties":
+        for rule in cfg.ensemble.layer_properties:
+            if rule.property == parts[1]:
+                return rule.layer
+    return default
+
+
+def layer_property_field(property_name: str) -> str:
+    """Имя расчётного поля слоя для поддерживаемого свойства материала."""
+    return _PROPERTIES_BY_NAME[property_name].field_name
+
+
+def sampled_layer_property_ranges(
+    cfg: RunConfig,
+    config_path: str | Path = Path("<RunConfig>"),
+    library: MaterialLibrary | None = None,
+) -> list[tuple[float, float]]:
+    """Проверить правила ансамбля и вернуть их библиотечные диапазоны в СИ."""
+    rules = cfg.ensemble.layer_properties
+    if not rules:
+        return []
+    config_path = Path(config_path)
+    bindings: list[_PropertyBinding] = []
+    seen: set[tuple[int, str]] = set()
+    for rule_index, rule in enumerate(rules):
+        location = f"ensemble.layer_properties.{rule_index}"
+        binding = _PROPERTIES_BY_NAME.get(rule.property)
+        if binding is None:
+            supported = ", ".join(_PROPERTIES_BY_NAME)
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                "material_id",
+                f"{location}: неизвестное или неподдерживаемое свойство {rule.property!r}; "
+                f"доступно: {supported}",
+            )
+        bindings.append(binding)
+        if rule.layer >= len(cfg.geology.layers):
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"{location}: слой с таким индексом отсутствует в geology.layers",
+            )
+        layer = cfg.geology.layers[rule.layer]
+        key = (rule.layer, rule.property)
+        if key in seen:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"{location}: правило выборки свойства {rule.property!r} уже задано для этого слоя",
+            )
+        seen.add(key)
+        if layer.material_id is None:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"{location}: выборка свойства {rule.property!r} требует material_id",
+            )
+        if rule.property in layer.material_overrides:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                f"material_overrides.{rule.property}",
+                f"{location}: выборка конфликтует с явным локальным переопределением "
+                f"свойства {rule.property!r}",
+            )
+        current = getattr(layer, binding.field_name)
+        if current is not None and binding.field_name not in layer.material_sources:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"{location}: выборка свойства {rule.property!r} конфликтует с явным "
+                f"значением {binding.field_name}",
+            )
+        if rule.property == "critical_span" and cfg.uncertainty.ledge_span_log_sd > 0:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"{location}: выборка свойства 'critical_span' конфликтует с уже заданным "
+                "uncertainty.ledge_span_log_sd",
+            )
+
+    if library is None:
+        first = rules[0]
+        if cfg.materials_library is None:
+            raise LayerMaterialError(
+                config_path,
+                first.layer,
+                bindings[0].field_name,
+                f"выборка свойства {first.property!r} требует materials_library",
+            )
+        try:
+            library = load_library(cfg.materials_library)
+        except LibraryValidationError as exc:
+            raise LayerMaterialError(
+                config_path,
+                _library_error_layer(cfg, exc, first.layer),
+                _library_error_field(exc),
+                f"не удалось загрузить materials_library {cfg.materials_library!r}: {exc}",
+            ) from exc
+
+    ranges: list[tuple[float, float]] = []
+    for rule, binding in zip(rules, bindings, strict=True):
+        layer = cfg.geology.layers[rule.layer]
+        material_id = layer.material_id
+        assert material_id is not None
+        entry = library.materials.get(material_id)
+        if entry is None:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                "material_id",
+                f"неизвестный id породы {material_id!r} для выборки {rule.property!r}",
+            )
+        prop = entry.properties.get(rule.property)
+        if prop is None:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"materials[{material_id!r}] не содержит свойство {rule.property!r} "
+                "с диапазоном range для выборки",
+            )
+        bounds = getattr(prop, "range", None)
+        if bounds is None:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"materials[{material_id!r}].properties[{rule.property!r}] "
+                "не содержит диапазон range для выборки",
+            )
+        if prop.quantity != binding.quantity or prop.unit != binding.unit:
+            raise LayerMaterialError(
+                config_path,
+                rule.layer,
+                binding.field_name,
+                f"materials[{material_id!r}].properties[{rule.property!r}] должно иметь "
+                f"quantity={binding.quantity!r} и unit={binding.unit!r}; получено "
+                f"quantity={prop.quantity!r}, unit={prop.unit!r}",
+            )
+        ranges.append(bounds)
+    return ranges
+
+
 def _resolve_layer(
     layer: LayerConfig, index: int, config_path: Path, library: MaterialLibrary
 ) -> LayerConfig:
@@ -209,6 +361,7 @@ def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfi
     referenced = [(i, layer) for i, layer in enumerate(cfg.geology.layers) if layer.material_id]
     fluid_referenced = cfg.leaching.injection_fluid_id is not None
     if not referenced and not fluid_referenced:
+        sampled_layer_property_ranges(cfg, config_path)
         return cfg
     first_index = referenced[0][0] if referenced else 0
     if cfg.materials_library is None:
@@ -234,7 +387,10 @@ def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfi
         message = f"не удалось загрузить materials_library {str(root)!r}: {exc}"
         if referenced:
             raise LayerMaterialError(
-                config_path, first_index, _library_error_field(exc), message
+                config_path,
+                _library_error_layer(cfg, exc, first_index),
+                _library_error_field(exc),
+                message,
             ) from exc
         raise InjectionFluidError(config_path, "injection_fluid_id", message) from exc
 
@@ -243,6 +399,8 @@ def resolve_layer_materials(cfg: RunConfig, config_path: str | Path) -> RunConfi
         layers[index] = _resolve_layer(layer, index, config_path, library)
     geology = cfg.geology.model_copy(update={"layers": layers})
     leaching = _resolve_injection_fluid(cfg.leaching, config_path, library)
-    return cfg.model_copy(
+    resolved = cfg.model_copy(
         update={"materials_library": str(root), "geology": geology, "leaching": leaching}
     )
+    sampled_layer_property_ranges(resolved, config_path, library)
+    return resolved
