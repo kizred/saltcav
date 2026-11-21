@@ -32,6 +32,7 @@ dM/ds = ± Q² g'/M там вырождается).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import fsum
 
 import numpy as np
 from numpy.typing import NDArray
@@ -51,6 +52,33 @@ class PlumeResult:
     k_deposit: int  # слой, куда отдана смесь
     q_deposit: float  # расход смеси, м³/с (= закачка + Σ вовлечённого)
     c_deposit: float  # концентрация смеси при концентрациях начала шага, кг/м³
+
+
+def _quadratic_fit(x: FloatArray, y: FloatArray) -> tuple[float, float, float]:
+    """Квадратичная регрессия без LAPACK, независимая от ядра OpenBLAS."""
+    scale = float(x[-1])
+    u = [float(v) / scale for v in x]
+    values = [float(v) for v in y]
+    matrix = [
+        [
+            *(fsum(v ** (row + col) for v in u) for col in range(3)),
+            fsum(value * v**row for value, v in zip(values, u, strict=True)),
+        ]
+        for row in range(3)
+    ]
+    for col in range(2):
+        pivot = max(range(col, 3), key=lambda row: abs(matrix[row][col]))
+        matrix[col], matrix[pivot] = matrix[pivot], matrix[col]
+        for row in range(col + 1, 3):
+            factor = matrix[row][col] / matrix[col][col]
+            for k in range(col + 1, 4):
+                matrix[row][k] -= factor * matrix[col][k]
+    coefficients = [0.0] * 3
+    for row in range(2, -1, -1):
+        residual = fsum(matrix[row][k] * coefficients[k] for k in range(row + 1, 3))
+        coefficients[row] = (matrix[row][3] - residual) / matrix[row][row]
+    b0, b1, b2 = coefficients
+    return b2 / scale**2, b1 / scale, b0
 
 
 def plume_fluxes(
@@ -78,7 +106,7 @@ def plume_fluxes(
     # плотность рассола ρ(C) — квадратичная аппроксимация таблицы (ошибка в перепаде
     # плотности ≈ 0,25 %); табличная интерполяция на каждом подшаге слишком медленна
     c_fit = np.linspace(0.0, float(brine.saturation_concentration(temperature_c)), 40)
-    a2, a1, a0 = np.polyfit(c_fit, brine.density_from_concentration(c_fit, temperature_c), 2)
+    a2, a1, a0 = _quadratic_fit(c_fit, brine.density_from_concentration(c_fit, temperature_c))
     rho_a = a0 + c * (a1 + a2 * c)
     entrained = np.zeros(n)
 

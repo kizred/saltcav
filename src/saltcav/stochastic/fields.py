@@ -22,6 +22,7 @@ d_φ = 2·sin(ℓ_φ/2). Экспонента от хордового расст
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from math import fsum, sqrt
 
 import numpy as np
 from numpy.typing import NDArray
@@ -52,8 +53,19 @@ def azimuth_correlation(phi: FloatArray, length_rad: float) -> FloatArray:
 
 
 def _cholesky(corr: FloatArray) -> FloatArray:
+    """Разложение Холецкого без LAPACK с фиксированным порядком суммирования."""
     n = corr.shape[0]
-    return np.asarray(np.linalg.cholesky(corr + JITTER * np.eye(n)), dtype=np.float64)
+    matrix = np.asarray(corr + JITTER * np.eye(n), dtype=np.float64)
+    out = np.zeros_like(matrix)
+    for i in range(n):
+        for j in range(i):
+            value = float(matrix[i, j]) - fsum(out[i, :j] * out[j, :j])
+            out[i, j] = value / float(out[j, j])
+        diagonal = float(matrix[i, i]) - fsum(out[i, :i] * out[i, :i])
+        if diagonal <= 0.0:
+            raise np.linalg.LinAlgError("матрица корреляций не положительно определена")
+        out[i, i] = sqrt(diagonal)
+    return out
 
 
 @dataclass(frozen=True)
@@ -78,7 +90,8 @@ class GaussianField:
 
     def sample(self, rng: np.random.Generator) -> FloatArray:
         w = rng.standard_normal(self.shape)
-        return np.asarray(self._lz @ w @ self._lphi.T, dtype=np.float64)
+        g = np.einsum("ij,jk->ik", self._lz, w)
+        return np.asarray(np.einsum("ij,kj->ik", g, self._lphi), dtype=np.float64)
 
 
 def lognormal_multiplier(g: FloatArray, sigma: float) -> FloatArray:
