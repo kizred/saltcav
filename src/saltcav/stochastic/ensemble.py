@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
@@ -67,12 +68,12 @@ def _run_one(task: tuple[RunConfig, int, int, FloatArray]) -> RealizationOutput:
     )
 
 
-_SAMPLER_CACHE: dict[int, RealizationSampler] = {}
+_SAMPLER_CACHE: dict[bytes, RealizationSampler] = {}
 
 
 def _sampler(cfg: RunConfig) -> RealizationSampler:
     """Сэмплер на процесс: множители Холецкого считаются один раз на конфигурацию."""
-    key = hash(cfg.model_dump_json())
+    key = hashlib.sha256(cfg.model_dump_json().encode("utf-8")).digest()
     if key not in _SAMPLER_CACHE:
         _SAMPLER_CACHE.clear()
         _SAMPLER_CACHE[key] = RealizationSampler(cfg)
