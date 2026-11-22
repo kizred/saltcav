@@ -23,7 +23,7 @@ from saltcav.core.config import RunConfig, load_config  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIGS = sorted((ROOT / "configs").glob("*.yaml"))
-LIBRARY = ROOT / "tests" / "fixtures" / "materials_library"
+LIBRARY = ROOT / "data" / "materials_library"
 FLUID_ID = "test-synthetic-fluid"
 ROCK_A = "test-sc014-anhydrite-a"
 ROCK_B = "test-sc014-anhydrite-b"

@@ -28,6 +28,11 @@ def bundled_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def bundled_materials_library() -> Path:
+    """Корень библиотеки, поставляемой рядом с программой только для чтения."""
+    return bundled_root() / "data" / "materials_library"
+
+
 def license_text() -> str:
     """Лицензионное соглашение (LICENSE.txt рядом с программой или в корне проекта)."""
     path = bundled_root() / "LICENSE.txt"

@@ -31,7 +31,7 @@ def test_default_jobs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(parallel, "available_memory_mb", lambda: 2000.0)
     assert parallel.default_jobs() == 4  # 0,8 · 2000 / 400 — память, а не ядра
     monkeypatch.setattr(parallel, "available_memory_mb", lambda: None)
-    assert parallel.default_jobs() == 64
+    assert parallel.default_jobs() == (61 if os.name == "nt" else 64)
 
 
 def test_single_thread_blas_in_workers() -> None:

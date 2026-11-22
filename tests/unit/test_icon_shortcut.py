@@ -25,7 +25,7 @@ def test_windows_script() -> None:
     s = windows_script(Path("C:/env/Scripts/saltcav-gui.exe"), Path("C:/x/saltcav.ico"),
                        Path("C:/Users/O'Brien/saltcav"), ["Desktop", "Programs"])  # fmt: skip
     assert s.count("$lnk.Save()") == 2 and "GetFolderPath('Desktop')" in s
-    assert "IconLocation = 'C:/x/saltcav.ico,0'" in s
+    assert f"IconLocation = '{Path('C:/x/saltcav.ico')},0'" in s
     assert "O''Brien" in s  # кавычка экранирована для PowerShell
 
 

@@ -17,6 +17,33 @@ from typing import Any
 
 import numpy as np
 
+BUNDLED_MATERIAL_ID = "test-synthetic-rock"
+BUNDLED_FLUID_ID = "test-synthetic-fluid"
+
+
+def check_materials_library() -> str:
+    """Загрузить поставляемые записи тем же загрузчиком, что и пользовательские."""
+    from saltcav.materials import load_library
+    from saltcav.workspace import bundled_materials_library
+
+    root = bundled_materials_library()
+    if not root.is_dir():
+        raise FileNotFoundError(f"поставляемый ресурс библиотеки материалов не найден: {root}")
+    library = load_library(root)
+    required = (
+        ("порода", BUNDLED_MATERIAL_ID, library.materials),
+        ("среда закачки", BUNDLED_FLUID_ID, library.fluids),
+    )
+    selected: list[str] = []
+    for category, entry_id, entries in required:
+        entry = entries.get(entry_id)
+        if entry is None:
+            raise RuntimeError(
+                f"в поставляемой библиотеке {root} не найдена {category} {entry_id!r}"
+            )
+        selected.append(f"{category} {entry.id}")
+    return ", ".join(selected)
+
 
 def _small_cfg() -> Any:
     import saltcav.api as sc
@@ -121,6 +148,7 @@ def checks(tmp: Path) -> list[tuple[str, Callable[[], str]]]:
         return "3D-вид камеры (VTK, OpenGL)"
 
     return [
+        ("библиотека материалов", check_materials_library),
         ("библиотеки", libs), ("PARDISO", pardiso), ("выщелачивание", leaching),
         ("ансамбль", ensemble), ("геомеханика 2D", mech2d), ("геомеханика 3D", mech3d),
         ("калибровка", calibration), ("отчёт", report), ("3D-вид", render),
