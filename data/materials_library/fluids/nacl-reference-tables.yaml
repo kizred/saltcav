@@ -1,0 +1,1383 @@
+id: nacl-reference-tables
+name: NaCl reference temperature series
+kind: nacl_brine_tables
+properties:
+  saturation_t_20:
+    quantity: dimensionless
+    value: 0.264
+    unit: '1'
+    range:
+    - 0.264
+    - 0.264
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 20 ?C
+  saturated_density_t_20:
+    quantity: density
+    value: 1200.4
+    unit: kg/m3
+    range:
+    - 1200.4
+    - 1200.4
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 20 ?C
+  viscosity_6molal_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0019508
+    unit: Pa*s
+    range:
+    - 0.0019508
+    - 0.0019508
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        20 ?C
+  saturation_t_30:
+    quantity: dimensionless
+    value: 0.2652
+    unit: '1'
+    range:
+    - 0.2652
+    - 0.2652
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 30 ?C
+  saturated_density_t_30:
+    quantity: density
+    value: 1197.5
+    unit: kg/m3
+    range:
+    - 1197.5
+    - 1197.5
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 30 ?C
+  viscosity_6molal_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0015599
+    unit: Pa*s
+    range:
+    - 0.0015599
+    - 0.0015599
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        30 ?C
+  saturation_t_40:
+    quantity: dimensionless
+    value: 0.2666
+    unit: '1'
+    range:
+    - 0.2666
+    - 0.2666
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 40 ?C
+  saturated_density_t_40:
+    quantity: density
+    value: 1193.7
+    unit: kg/m3
+    range:
+    - 1193.7
+    - 1193.7
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 40 ?C
+  viscosity_6molal_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0012832
+    unit: Pa*s
+    range:
+    - 0.0012832
+    - 0.0012832
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        40 ?C
+  saturation_t_50:
+    quantity: dimensionless
+    value: 0.2683
+    unit: '1'
+    range:
+    - 0.2683
+    - 0.2683
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 50 ?C
+  saturated_density_t_50:
+    quantity: density
+    value: 1189.6
+    unit: kg/m3
+    range:
+    - 1189.6
+    - 1189.6
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 50 ?C
+  viscosity_6molal_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0010795
+    unit: Pa*s
+    range:
+    - 0.0010795
+    - 0.0010795
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        50 ?C
+  saturation_t_60:
+    quantity: dimensionless
+    value: 0.2703
+    unit: '1'
+    range:
+    - 0.2703
+    - 0.2703
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 60 ?C
+  saturated_density_t_60:
+    quantity: density
+    value: 1185.4
+    unit: kg/m3
+    range:
+    - 1185.4
+    - 1185.4
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 60 ?C
+  viscosity_6molal_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0009246
+    unit: Pa*s
+    range:
+    - 0.0009246
+    - 0.0009246
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        60 ?C
+  saturation_t_70:
+    quantity: dimensionless
+    value: 0.2725
+    unit: '1'
+    range:
+    - 0.2725
+    - 0.2725
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 70 ?C
+  saturated_density_t_70:
+    quantity: density
+    value: 1181.1
+    unit: kg/m3
+    range:
+    - 1181.1
+    - 1181.1
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 70 ?C
+  viscosity_6molal_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0008037
+    unit: Pa*s
+    range:
+    - 0.0008037
+    - 0.0008037
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        70 ?C
+  saturation_t_80:
+    quantity: dimensionless
+    value: 0.275
+    unit: '1'
+    range:
+    - 0.275
+    - 0.275
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 80 ?C
+  saturated_density_t_80:
+    quantity: density
+    value: 1176.4
+    unit: kg/m3
+    range:
+    - 1176.4
+    - 1176.4
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 80 ?C
+  viscosity_6molal_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0007074
+    unit: Pa*s
+    range:
+    - 0.0007074
+    - 0.0007074
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        80 ?C
+  saturation_t_90:
+    quantity: dimensionless
+    value: 0.2777
+    unit: '1'
+    range:
+    - 0.2777
+    - 0.2777
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 90 ?C
+  saturated_density_t_90:
+    quantity: density
+    value: 1172.0
+    unit: kg/m3
+    range:
+    - 1172.0
+    - 1172.0
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 90 ?C
+  viscosity_6molal_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0006292
+    unit: Pa*s
+    range:
+    - 0.0006292
+    - 0.0006292
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        90 ?C
+  saturation_t_100:
+    quantity: dimensionless
+    value: 0.2806
+    unit: '1'
+    range:
+    - 0.2806
+    - 0.2806
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, mass % converted to fraction; 100 ?C
+  saturated_density_t_100:
+    quantity: density
+    value: 1168.2
+    unit: kg/m3
+    range:
+    - 1168.2
+    - 1168.2
+    source:
+      reference: Cohen-Adad and Lorimer, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, g/cm3 converted to kg/m3; 100 ?C
+  viscosity_6molal_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0005648
+    unit: Pa*s
+    range:
+    - 0.0005648
+    - 0.0005648
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 13, p. 81, 6 mol/kg, p*=max(0.1 MPa, water vapor pressure), micro Pa*s converted to Pa*s;
+        100 ?C
+  viscosity_m_0_t_20:
+    quantity: dynamic_viscosity
+    value: 0.001002
+    unit: Pa*s
+    range:
+    - 0.001002
+    - 0.001002
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0007972
+    unit: Pa*s
+    range:
+    - 0.0007972
+    - 0.0007972
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0006529
+    unit: Pa*s
+    range:
+    - 0.0006529
+    - 0.0006529
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0005471
+    unit: Pa*s
+    range:
+    - 0.0005471
+    - 0.0005471
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_60:
+    quantity: dynamic_viscosity
+    value: 0.000467
+    unit: Pa*s
+    range:
+    - 0.000467
+    - 0.000467
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0004047
+    unit: Pa*s
+    range:
+    - 0.0004047
+    - 0.0004047
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0003551
+    unit: Pa*s
+    range:
+    - 0.0003551
+    - 0.0003551
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0003151
+    unit: Pa*s
+    range:
+    - 0.0003151
+    - 0.0003151
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_0_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0002821
+    unit: Pa*s
+    range:
+    - 0.0002821
+    - 0.0002821
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 1, 0.0 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0010432
+    unit: Pa*s
+    range:
+    - 0.0010432
+    - 0.0010432
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0008333
+    unit: Pa*s
+    range:
+    - 0.0008333
+    - 0.0008333
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0006848
+    unit: Pa*s
+    range:
+    - 0.0006848
+    - 0.0006848
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0005756
+    unit: Pa*s
+    range:
+    - 0.0005756
+    - 0.0005756
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0004927
+    unit: Pa*s
+    range:
+    - 0.0004927
+    - 0.0004927
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_70:
+    quantity: dynamic_viscosity
+    value: 0.000428
+    unit: Pa*s
+    range:
+    - 0.000428
+    - 0.000428
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0003764
+    unit: Pa*s
+    range:
+    - 0.0003764
+    - 0.0003764
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0003347
+    unit: Pa*s
+    range:
+    - 0.0003347
+    - 0.0003347
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_1_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0003003
+    unit: Pa*s
+    range:
+    - 0.0003003
+    - 0.0003003
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 2, 0.5 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0010903
+    unit: Pa*s
+    range:
+    - 0.0010903
+    - 0.0010903
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0008735
+    unit: Pa*s
+    range:
+    - 0.0008735
+    - 0.0008735
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0007197
+    unit: Pa*s
+    range:
+    - 0.0007197
+    - 0.0007197
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0006063
+    unit: Pa*s
+    range:
+    - 0.0006063
+    - 0.0006063
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_60:
+    quantity: dynamic_viscosity
+    value: 0.00052
+    unit: Pa*s
+    range:
+    - 0.00052
+    - 0.00052
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0004525
+    unit: Pa*s
+    range:
+    - 0.0004525
+    - 0.0004525
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0003987
+    unit: Pa*s
+    range:
+    - 0.0003987
+    - 0.0003987
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_90:
+    quantity: dynamic_viscosity
+    value: 0.000355
+    unit: Pa*s
+    range:
+    - 0.000355
+    - 0.000355
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_2_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0003189
+    unit: Pa*s
+    range:
+    - 0.0003189
+    - 0.0003189
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 3, 1.0 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0011435
+    unit: Pa*s
+    range:
+    - 0.0011435
+    - 0.0011435
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_30:
+    quantity: dynamic_viscosity
+    value: 0.000918
+    unit: Pa*s
+    range:
+    - 0.000918
+    - 0.000918
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0007577
+    unit: Pa*s
+    range:
+    - 0.0007577
+    - 0.0007577
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0006393
+    unit: Pa*s
+    range:
+    - 0.0006393
+    - 0.0006393
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_60:
+    quantity: dynamic_viscosity
+    value: 0.000549
+    unit: Pa*s
+    range:
+    - 0.000549
+    - 0.000549
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0004784
+    unit: Pa*s
+    range:
+    - 0.0004784
+    - 0.0004784
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0004219
+    unit: Pa*s
+    range:
+    - 0.0004219
+    - 0.0004219
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0003761
+    unit: Pa*s
+    range:
+    - 0.0003761
+    - 0.0003761
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_3_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0003382
+    unit: Pa*s
+    range:
+    - 0.0003382
+    - 0.0003382
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 4, 1.5 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0012032
+    unit: Pa*s
+    range:
+    - 0.0012032
+    - 0.0012032
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_30:
+    quantity: dynamic_viscosity
+    value: 0.000967
+    unit: Pa*s
+    range:
+    - 0.000967
+    - 0.000967
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_40:
+    quantity: dynamic_viscosity
+    value: 0.000799
+    unit: Pa*s
+    range:
+    - 0.000799
+    - 0.000799
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0006747
+    unit: Pa*s
+    range:
+    - 0.0006747
+    - 0.0006747
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0005799
+    unit: Pa*s
+    range:
+    - 0.0005799
+    - 0.0005799
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0005057
+    unit: Pa*s
+    range:
+    - 0.0005057
+    - 0.0005057
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0004464
+    unit: Pa*s
+    range:
+    - 0.0004464
+    - 0.0004464
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0003981
+    unit: Pa*s
+    range:
+    - 0.0003981
+    - 0.0003981
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_4_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0003582
+    unit: Pa*s
+    range:
+    - 0.0003582
+    - 0.0003582
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 5, 2.0 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0012697
+    unit: Pa*s
+    range:
+    - 0.0012697
+    - 0.0012697
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0010209
+    unit: Pa*s
+    range:
+    - 0.0010209
+    - 0.0010209
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0008439
+    unit: Pa*s
+    range:
+    - 0.0008439
+    - 0.0008439
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0007129
+    unit: Pa*s
+    range:
+    - 0.0007129
+    - 0.0007129
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_60:
+    quantity: dynamic_viscosity
+    value: 0.000613
+    unit: Pa*s
+    range:
+    - 0.000613
+    - 0.000613
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0005347
+    unit: Pa*s
+    range:
+    - 0.0005347
+    - 0.0005347
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0004721
+    unit: Pa*s
+    range:
+    - 0.0004721
+    - 0.0004721
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0004211
+    unit: Pa*s
+    range:
+    - 0.0004211
+    - 0.0004211
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_5_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0003791
+    unit: Pa*s
+    range:
+    - 0.0003791
+    - 0.0003791
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 6, 2.5 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0013432
+    unit: Pa*s
+    range:
+    - 0.0013432
+    - 0.0013432
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_30:
+    quantity: dynamic_viscosity
+    value: 0.00108
+    unit: Pa*s
+    range:
+    - 0.00108
+    - 0.00108
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0008927
+    unit: Pa*s
+    range:
+    - 0.0008927
+    - 0.0008927
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0007541
+    unit: Pa*s
+    range:
+    - 0.0007541
+    - 0.0007541
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0006484
+    unit: Pa*s
+    range:
+    - 0.0006484
+    - 0.0006484
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0005655
+    unit: Pa*s
+    range:
+    - 0.0005655
+    - 0.0005655
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0004993
+    unit: Pa*s
+    range:
+    - 0.0004993
+    - 0.0004993
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0004454
+    unit: Pa*s
+    range:
+    - 0.0004454
+    - 0.0004454
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_6_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0004009
+    unit: Pa*s
+    range:
+    - 0.0004009
+    - 0.0004009
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 7, 3.0 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0014242
+    unit: Pa*s
+    range:
+    - 0.0014242
+    - 0.0014242
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0011445
+    unit: Pa*s
+    range:
+    - 0.0011445
+    - 0.0011445
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0009456
+    unit: Pa*s
+    range:
+    - 0.0009456
+    - 0.0009456
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0007985
+    unit: Pa*s
+    range:
+    - 0.0007985
+    - 0.0007985
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0006863
+    unit: Pa*s
+    range:
+    - 0.0006863
+    - 0.0006863
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0005984
+    unit: Pa*s
+    range:
+    - 0.0005984
+    - 0.0005984
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0005282
+    unit: Pa*s
+    range:
+    - 0.0005282
+    - 0.0005282
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_90:
+    quantity: dynamic_viscosity
+    value: 0.000471
+    unit: Pa*s
+    range:
+    - 0.000471
+    - 0.000471
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_7_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0004239
+    unit: Pa*s
+    range:
+    - 0.0004239
+    - 0.0004239
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 8, 3.5 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0015129
+    unit: Pa*s
+    range:
+    - 0.0015129
+    - 0.0015129
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0010029
+    unit: Pa*s
+    range:
+    - 0.0010029
+    - 0.0010029
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0008464
+    unit: Pa*s
+    range:
+    - 0.0008464
+    - 0.0008464
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_60:
+    quantity: dynamic_viscosity
+    value: 0.000727
+    unit: Pa*s
+    range:
+    - 0.000727
+    - 0.000727
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0006336
+    unit: Pa*s
+    range:
+    - 0.0006336
+    - 0.0006336
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_80:
+    quantity: dynamic_viscosity
+    value: 0.000559
+    unit: Pa*s
+    range:
+    - 0.000559
+    - 0.000559
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0004983
+    unit: Pa*s
+    range:
+    - 0.0004983
+    - 0.0004983
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0004482
+    unit: Pa*s
+    range:
+    - 0.0004482
+    - 0.0004482
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0016097
+    unit: Pa*s
+    range:
+    - 0.0016097
+    - 0.0016097
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0012912
+    unit: Pa*s
+    range:
+    - 0.0012912
+    - 0.0012912
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_40:
+    quantity: dynamic_viscosity
+    value: 0.001065
+    unit: Pa*s
+    range:
+    - 0.001065
+    - 0.001065
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0008981
+    unit: Pa*s
+    range:
+    - 0.0008981
+    - 0.0008981
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0007708
+    unit: Pa*s
+    range:
+    - 0.0007708
+    - 0.0007708
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0006714
+    unit: Pa*s
+    range:
+    - 0.0006714
+    - 0.0006714
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0005919
+    unit: Pa*s
+    range:
+    - 0.0005919
+    - 0.0005919
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0005274
+    unit: Pa*s
+    range:
+    - 0.0005274
+    - 0.0005274
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_9_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0004742
+    unit: Pa*s
+    range:
+    - 0.0004742
+    - 0.0004742
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 10, 4.5 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0017148
+    unit: Pa*s
+    range:
+    - 0.0017148
+    - 0.0017148
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0013739
+    unit: Pa*s
+    range:
+    - 0.0013739
+    - 0.0013739
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0011322
+    unit: Pa*s
+    range:
+    - 0.0011322
+    - 0.0011322
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0009539
+    unit: Pa*s
+    range:
+    - 0.0009539
+    - 0.0009539
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0008181
+    unit: Pa*s
+    range:
+    - 0.0008181
+    - 0.0008181
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_70:
+    quantity: dynamic_viscosity
+    value: 0.0007121
+    unit: Pa*s
+    range:
+    - 0.0007121
+    - 0.0007121
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_80:
+    quantity: dynamic_viscosity
+    value: 0.0006274
+    unit: Pa*s
+    range:
+    - 0.0006274
+    - 0.0006274
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 80 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0005587
+    unit: Pa*s
+    range:
+    - 0.0005587
+    - 0.0005587
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_10_t_100:
+    quantity: dynamic_viscosity
+    value: 0.000502
+    unit: Pa*s
+    range:
+    - 0.000502
+    - 0.000502
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 11, 5.0 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_20:
+    quantity: dynamic_viscosity
+    value: 0.0018284
+    unit: Pa*s
+    range:
+    - 0.0018284
+    - 0.0018284
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 20 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_30:
+    quantity: dynamic_viscosity
+    value: 0.0014634
+    unit: Pa*s
+    range:
+    - 0.0014634
+    - 0.0014634
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 30 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_40:
+    quantity: dynamic_viscosity
+    value: 0.0012048
+    unit: Pa*s
+    range:
+    - 0.0012048
+    - 0.0012048
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 40 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_50:
+    quantity: dynamic_viscosity
+    value: 0.0010142
+    unit: Pa*s
+    range:
+    - 0.0010142
+    - 0.0010142
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 50 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_60:
+    quantity: dynamic_viscosity
+    value: 0.0008692
+    unit: Pa*s
+    range:
+    - 0.0008692
+    - 0.0008692
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 60 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_70:
+    quantity: dynamic_viscosity
+    value: 0.000756
+    unit: Pa*s
+    range:
+    - 0.000756
+    - 0.000756
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 70 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_90:
+    quantity: dynamic_viscosity
+    value: 0.0005925
+    unit: Pa*s
+    range:
+    - 0.0005925
+    - 0.0005925
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 90 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_100:
+    quantity: dynamic_viscosity
+    value: 0.0005321
+    unit: Pa*s
+    range:
+    - 0.0005321
+    - 0.0005321
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 100 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_25:
+    quantity: dynamic_viscosity
+    value: 0.0013504
+    unit: Pa*s
+    range:
+    - 0.0013504
+    - 0.0013504
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 25 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_8_t_35:
+    quantity: dynamic_viscosity
+    value: 0.0011004
+    unit: Pa*s
+    range:
+    - 0.0011004
+    - 0.0011004
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 9, 4.0 mol/kg, 35 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_75:
+    quantity: dynamic_viscosity
+    value: 0.0007085
+    unit: Pa*s
+    range:
+    - 0.0007085
+    - 0.0007085
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 75 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s
+  viscosity_m_11_t_85:
+    quantity: dynamic_viscosity
+    value: 0.0006273
+    unit: Pa*s
+    range:
+    - 0.0006273
+    - 0.0006273
+    source:
+      reference: Kestin, Khalifa and Correia, J. Phys. Chem. Ref. Data 10, 71 (1981), https://srd.nist.gov/JPCRD/jpcrd176.pdf
+      location: Table 12, 5.5 mol/kg, 85 ?C, p*=max(0.1 MPa, vapor pressure); micro Pa*s converted to Pa*s

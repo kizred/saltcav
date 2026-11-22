@@ -87,6 +87,13 @@ def test_rock_id_cannot_be_assigned_to_injection_fluid(tmp_path: Path) -> None:
     assert "fluids" in message
 
 
+@pytest.mark.parametrize("fluid_id", ["nacl-reference-tables", "nacl-default-1x"])
+def test_property_table_is_not_an_injection_fluid(tmp_path: Path, fluid_id: str) -> None:
+    path = _write_case(tmp_path, _linked_raw(fluid_id), "table.yaml")
+    with pytest.raises(InjectionFluidError, match="таблицы не задают среду закачки"):
+        load_config(path)
+
+
 @pytest.mark.parametrize("explicit_value", [25.0, 0.0])
 def test_explicit_injection_concentration_has_priority(
     tmp_path: Path, explicit_value: float
