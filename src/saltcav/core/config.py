@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -15,7 +16,13 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from saltcav.core import units
+from saltcav.legacy_defaults import value as _library_value
 from saltcav.materials import FiniteFloat, PropertySource
+
+
+def _salt(name: str, quantity: str, unit: str, factor: str = "1") -> float:
+    v = _library_value("materials", "salt-default-1x", name, quantity, unit)
+    return float(Decimal(str(v)) * Decimal(factor))
 
 
 class _Strict(BaseModel):
@@ -110,7 +117,7 @@ class GeologyConfig(_Strict):
     ] = 1.5
     salt_density_kg_m3: Annotated[
         float, Field(gt=0, description="Плотность каменной соли, кг/м³")
-    ] = 2160.0
+    ] = _salt("density", "density", "kg/m3")
     k_variation: Annotated[
         float,
         Field(ge=0, lt=1, description="Асимметрия: амплитуда a в m(φ) = 1 + a·cos(φ − φ₀), 0…1"),
@@ -234,7 +241,9 @@ class LeachingConfig(_Strict):
     injection_concentration_kg_m3: Annotated[
         float,
         Field(ge=0, description="Массовая концентрация NaCl в среде закачки, кг/м³"),
-    ] = 0.0
+    ] = _library_value(
+        "fluids", "water-default-1x", "mass_concentration", "mass_concentration", "kg/m3"
+    )
     plume: bool = Field(
         default=True,
         description="Струя и плюм от башмака закачки; false — мгновенное перемешивание",
@@ -317,13 +326,27 @@ class CreepBranchConfig(_Strict):
 class TransientConfig(_Strict):
     """Неустановившаяся ползучесть Мансона–Доусона (по умолчанию — соль WIPP)."""
 
-    mu_gpa: Annotated[float, Field(gt=0, description="Модуль сдвига в законе, ГПа")] = 12.4
-    k0: Annotated[float, Field(gt=0, description="K0 в ε_t* = K0·exp(cT)·(σ/μ)^m")] = 6.275e5
-    c_per_k: Annotated[float, Field(description="c, 1/К")] = 9.198e-3
-    m: Annotated[float, Field(gt=0, description="Показатель m")] = 3.0
-    alpha_w: Annotated[float, Field(description="α_w — упрочнение")] = -17.37
-    beta_w: Annotated[float, Field(description="β_w — упрочнение")] = -7.738
-    delta: Annotated[float, Field(ge=0, description="δ — возврат")] = 0.58
+    mu_gpa: Annotated[float, Field(gt=0, description="Модуль сдвига в законе, ГПа")] = _salt(
+        "transient_mu", "stress", "Pa", "1e-9"
+    )
+    k0: Annotated[float, Field(gt=0, description="K0 в ε_t* = K0·exp(cT)·(σ/μ)^m")] = _salt(
+        "transient_k0", "dimensionless", "1"
+    )
+    c_per_k: Annotated[float, Field(description="c, 1/К")] = _salt(
+        "transient_c", "thermal_expansion", "1/K"
+    )
+    m: Annotated[float, Field(gt=0, description="Показатель m")] = _salt(
+        "transient_m", "dimensionless", "1"
+    )
+    alpha_w: Annotated[float, Field(description="α_w — упрочнение")] = _salt(
+        "transient_alpha_w", "dimensionless", "1"
+    )
+    beta_w: Annotated[float, Field(description="β_w — упрочнение")] = _salt(
+        "transient_beta_w", "dimensionless", "1"
+    )
+    delta: Annotated[float, Field(ge=0, description="δ — возврат")] = _salt(
+        "transient_delta", "dimensionless", "1"
+    )
 
 
 class PressureStageConfig(_Strict):
@@ -438,8 +461,12 @@ class MechanicsConfig(_Strict):
         float | None,
         Field(gt=0, description="Радиус ячейки (половина расстояния между камерами) для roller"),
     ] = None
-    youngs_modulus_gpa: Annotated[float, Field(gt=0, description="Модуль Юнга соли, ГПа")] = 25.0
-    poisson: Annotated[float, Field(gt=0, lt=0.5, description="Коэффициент Пуассона")] = 0.25
+    youngs_modulus_gpa: Annotated[float, Field(gt=0, description="Модуль Юнга соли, ГПа")] = _salt(
+        "youngs_modulus", "stress", "Pa", "1e-9"
+    )
+    poisson: Annotated[float, Field(gt=0, lt=0.5, description="Коэффициент Пуассона")] = _salt(
+        "poisson_ratio", "dimensionless", "1"
+    )
     overburden_density_kg_m3: Annotated[
         float, Field(gt=0, description="Средняя плотность пород над камерой, кг/м³")
     ] = 2300.0
@@ -450,7 +477,13 @@ class MechanicsConfig(_Strict):
         float, Field(ge=0, description="Геотермический градиент, °C/км")
     ] = 30.0
     creep: list[CreepBranchConfig] = Field(
-        default_factory=lambda: [CreepBranchConfig(a_per_day=0.18, n=5.0, q_kj_per_mol=54.0)],
+        default_factory=lambda: [
+            CreepBranchConfig(
+                a_per_day=_salt("creep_a", "strain_rate", "1/s", "86400"),
+                n=_salt("creep_n", "dimensionless", "1"),
+                q_kj_per_mol=_salt("creep_q", "activation_energy", "J/mol", "0.001"),
+            )
+        ],
         description="Ветви установившейся ползучести (сумма); по умолчанию BGRa",
     )
     transient: TransientConfig | None = Field(

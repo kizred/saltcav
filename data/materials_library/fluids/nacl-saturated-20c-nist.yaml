@@ -27,3 +27,11 @@ properties:
     source:
       reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
       location: Table 9, p. 94, 20 °C row; calculated as 0.2640 times 1200.4 kg/m3
+  dynamic_viscosity:
+    quantity: dynamic_viscosity
+    value: 0.0020238
+    unit: Pa*s
+    range: [0.0020238, 0.0020238]
+    source:
+      reference: CRC Handbook of Chemistry and Physics, 84th ed. (2003–2004), https://fap.if.usp.br/~jhsevero/Fisica_Experimental_C_Semestral_2022/crc.pdf; Cohen-Adad and Lorimer, IUPAC SDS-47, https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: CRC p. 8-77, NaCl viscosity at 20 °C and 24% (1.821 mPa s), 26% (1.990 mPa s); linear extrapolation to 26.40% saturation from SDS-47 table 9 p. 94. Estimate, not a measured saturation value; point range is not uncertainty.

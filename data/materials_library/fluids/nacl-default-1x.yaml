@@ -114,11 +114,11 @@ properties:
       location: water_density, axis 100 ?C
   saturation_0:
     quantity: dimensionless
-    value: 0.2628
+    value: 0.26280000000000003
     unit: '1'
     range:
-    - 0.2628
-    - 0.2628
+    - 0.26280000000000003
+    - 0.26280000000000003
     source:
       reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
       location: saturation, axis 0 ?C
@@ -174,11 +174,11 @@ properties:
       location: saturation, axis 40 ?C
   saturation_50:
     quantity: dimensionless
-    value: 0.2684
+    value: 0.26839999999999997
     unit: '1'
     range:
-    - 0.2684
-    - 0.2684
+    - 0.26839999999999997
+    - 0.26839999999999997
     source:
       reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
       location: saturation, axis 50 ?C

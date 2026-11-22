@@ -55,6 +55,9 @@ saltcav-gui = "saltcav.gui.app:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/saltcav"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"data/materials_library" = "saltcav/_materials_library"
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

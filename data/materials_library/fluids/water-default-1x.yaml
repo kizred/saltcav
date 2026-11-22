@@ -11,3 +11,35 @@ properties:
     source:
       reference: SaltCav 1.2.0, src/saltcav/core/config.py
       location: LeachingConfig.injection_concentration_kg_m3 default
+  vogel_a:
+    quantity: dynamic_viscosity
+    value: 2.414e-5
+    unit: 'Pa*s'
+    range: [2.414e-5, 2.414e-5]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/brine.py
+      location: Vogel A, model default
+  vogel_b:
+    quantity: temperature
+    value: 247.8
+    unit: K
+    range: [247.8, 247.8]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/brine.py
+      location: Vogel B, model default
+  vogel_c:
+    quantity: temperature
+    value: 140.0
+    unit: K
+    range: [140.0, 140.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/brine.py
+      location: Vogel C, model default
+  nacl_diffusivity_25c:
+    quantity: diffusivity
+    value: 1.61e-9
+    unit: m2/s
+    range: [1.61e-9, 1.61e-9]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/brine.py
+      location: D_NACL_25C, model default
