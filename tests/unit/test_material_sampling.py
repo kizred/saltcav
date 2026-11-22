@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -110,8 +113,28 @@ def _write_case(tmp_path: Path, raw: dict[str, Any], name: str = "case.yaml") ->
 
 def _quantized_array_digest(array: np.ndarray) -> str:
     a = np.asarray(array)
-    q = np.round(a / max(1.0, float(np.max(np.abs(a)))) * 1e9).astype(np.int64)
+    q = np.round(a / max(1.0, float(np.max(np.abs(a)))) * 1e9).astype("<i8")
     return hashlib.sha256(q.tobytes()).hexdigest()
+
+
+def test_sampler_cache_key_is_stable_across_hash_seeds() -> None:
+    code = (
+        "from pathlib import Path; "
+        "from saltcav.core.config import load_config; "
+        "from saltcav.stochastic import ensemble; "
+        "cfg = load_config(Path('configs/example_ensemble.yaml')); "
+        "ensemble._sampler(cfg); print(next(iter(ensemble._SAMPLER_CACHE)).hex())"
+    )
+    expected = hashlib.sha256(load_config(ENSEMBLE_EXAMPLE).model_dump_json().encode()).hexdigest()
+    keys = []
+    for seed in ("1", "2"):
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        keys.append(
+            subprocess.check_output(
+                [sys.executable, "-c", code], cwd=ROOT, env=env, text=True
+            ).strip()
+        )
+    assert keys == [expected, expected]
 
 
 def test_sampling_is_seeded_local_and_matches_explicit_single_run(tmp_path: Path) -> None:
@@ -276,8 +299,8 @@ def test_legacy_single_and_fixed_seed_ensemble_regression() -> None:
     single = simulate(cfg)
     ensemble = run_ensemble(cfg, n=4, seed=11, jobs=1)
 
-    # SC-020: младшие биты зависят от сборки NumPy/BLAS и процессора. Сравнение
-    # с допуском показывает величину расхождения, квантованный SHA-256 — регрессии.
+    # Младшие биты зависят от NumPy/BLAS и процессора. Результат сравнивается
+    # с допуском, а SHA-256 проверяет целостность эталонных данных.
     actual_arrays = {
         "single_radius": single.radius[-1],
         "single_volume": single.volume,
@@ -288,7 +311,7 @@ def test_legacy_single_and_fixed_seed_ensemble_regression() -> None:
     with np.load(REGRESSION_REF) as reference:
         for name, actual in actual_arrays.items():
             np.testing.assert_allclose(actual, reference[name], rtol=2e-6, atol=1e-9, err_msg=name)
-            assert _quantized_array_digest(actual) == QUANTIZED_DIGESTS[name], name
+            assert _quantized_array_digest(reference[name]) == QUANTIZED_DIGESTS[name], name
     assert ensemble.param_names == [
         "k0",
         "roof_ratio",

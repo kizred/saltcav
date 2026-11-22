@@ -13,7 +13,7 @@ from saltcav.material_binding import InjectionFluidError
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / "configs" / "example.yaml"
-LIBRARY = ROOT / "tests" / "fixtures" / "materials_library"
+LIBRARY = ROOT / "data" / "materials_library"
 FLUID_ID = "test-synthetic-fluid"
 ROCK_ID = "test-synthetic-rock"
 CONCENTRATION = 120.0

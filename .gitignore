@@ -3,6 +3,7 @@ data/*
 !data/.gitkeep
 !data/demo/
 !data/open/
+!data/materials_library/
 results/
 *.nc
 *.zarr/
