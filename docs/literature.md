@@ -108,3 +108,18 @@
 
 Новую работу добавлять в нужный раздел таблицей: ссылка, о чём (своими словами), для чего
 нам, приоритет. Если источник меняет решение — запись в `decisions.md`.
+
+## Источники, названные в коде
+
+| Источник | Применение и состояние сверки |
+| --- | --- |
+| [SANSMIC](https://github.com/sandialabs/sansmic) | `core/config.py`, `leaching/plume.py` и бенчмарк. Для k0 указана подгонка SaltCav по бенчмарку, для α — значение SANSMIC. |
+| [CRC Handbook of Chemistry and Physics](https://www.taylorfrancis.com/books/mono/10.1201/b17118/crc-handbook-chemistry-physics-william-haynes) | Таблицы воды и NaCl в `core/brine.py`. Код не указывает издание и страницы, поэтому значения по первоисточнику пока не подтверждены. |
+| [Hunsche, Hampel, 1999](https://www.sciencedirect.com/science/article/pii/S0013795299000113) | Закон BGRa и коэффициенты в `mechanics/creep.py`. Место в источнике для конкретного набора коэффициентов не указано. |
+| [Munson, 1997](https://www.sciencedirect.com/science/article/abs/pii/S0148906296000472) | Параметры WIPP в `mechanics/creep.py`. Место в источнике для каждого параметра не указано. |
+| [Ratigan et al., 1991](https://digital.library.unt.edu/ark%3A/67531/metadc841794/m2/1/high_res_d/1013228.pdf) | Критерий в `mechanics/criteria.py`. Ссылка ведёт на отчёт Sandia 2011, который цитирует работу 1991 года, а не на сам отчёт RSI-0400. Коэффициент 0,27 требует сверки с первоисточником. |
+| [Echard, Gayton, Lemaire, 2011](https://www.sciencedirect.com/science/article/pii/S0167473011000038) | Метод AK-MCS в `surrogate/study.py`. |
+
+Для критерия SMRI в `mechanics/criteria.py` и коэффициентов уравнения Фогеля и диффузии
+в `core/brine.py` в коде не указаны конкретные публикации. Для них требуется установить
+первоисточники до библиографической сверки чисел.
