@@ -1,0 +1,13 @@
+# Compensated density log for one stratigraphic interval; not a universal halite constant.
+id: jintan-fusi-layer-1
+name: Jintan, Fusi section, saline rock, layer 1
+kind: rock_salt
+properties:
+  density:
+    quantity: density
+    value: 2060.0
+    unit: kg/m3
+    range: [2060.0, 2060.0]
+    source:
+      reference: Cen et al., Processes 12 (2024), 1124, https://doi.org/10.3390/pr12061124
+      location: Table 3, layer 1, depth 794.8–809.0 m; compensated density 2.06 g/cm3 converted to SI

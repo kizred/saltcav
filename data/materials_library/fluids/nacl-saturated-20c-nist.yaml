@@ -1,0 +1,29 @@
+# Saturated NaCl solution at 20 °C; point data, not a temperature-dependent model.
+id: nacl-saturated-20c-nist
+name: Saturated NaCl solution at 20 °C (NIST)
+kind: nacl_brine
+properties:
+  temperature:
+    quantity: temperature
+    value: 293.15
+    unit: K
+    range: [293.15, 293.15]
+    source:
+      reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, 20 °C row
+  density:
+    quantity: density
+    value: 1200.4
+    unit: kg/m3
+    range: [1200.4, 1200.4]
+    source:
+      reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, 20 °C row; 1.2004 g/cm3 converted to SI
+  mass_concentration:
+    quantity: mass_concentration
+    value: 316.9056
+    unit: kg/m3
+    range: [316.9056, 316.9056]
+    source:
+      reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, 20 °C row; calculated as 0.2640 times 1200.4 kg/m3

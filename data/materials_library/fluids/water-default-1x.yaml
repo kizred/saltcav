@@ -1,0 +1,13 @@
+# Legacy model input: pure water has no dissolved NaCl.
+id: water-default-1x
+name: Fresh water — SaltCav 1.x injection default
+kind: water
+properties:
+  mass_concentration:
+    quantity: mass_concentration
+    value: 0.0
+    unit: kg/m3
+    range: [0.0, 0.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: LeachingConfig.injection_concentration_kg_m3 default

@@ -48,13 +48,52 @@ if TYPE_CHECKING:
     from saltcav.surrogate.study import StudyResult
 
 __all__ = [
-    "Table", "calibrate", "data", "ensemble", "get", "load", "mechanics", "plot", "report",
-    "run", "save", "set", "stability", "sweep", "table",
+    "Table", "apply_bulk_salt", "calibrate", "data", "ensemble", "get", "load", "mechanics",
+    "plot", "report", "run", "save", "set", "stability", "sweep", "table",
 ]  # fmt: skip
 
 Progress = Callable[[float, str], None]
 
 # --- конфигурация -------------------------------------------------------------------------
+
+
+def apply_bulk_salt(cfg: RunConfig, library: str | Path, material_id: str) -> RunConfig:
+    """Явно применить поддерживаемые свойства общей соли из YAML-библиотеки.
+
+    Плотность, модуль Юнга и коэффициент Пуассона заменяют соответствующие поля
+    конфигурации; отсутствующие свойства оставляются как были. Исходный cfg не меняется.
+    """
+    from saltcav.materials import load_library
+
+    entries = load_library(library).materials
+    if material_id not in entries:
+        raise ValueError(f"неизвестный id породы {material_id!r}")
+    entry = entries[material_id]
+    if entry.kind != "rock_salt":
+        raise ValueError(f"{material_id!r}: ожидается kind 'rock_salt', получен {entry.kind!r}")
+    bindings = (
+        ("density", "density", "kg/m3", "geology", "salt_density_kg_m3", 1.0),
+        ("youngs_modulus", "stress", "Pa", "mechanics", "youngs_modulus_gpa", 1e-9),
+        ("poisson_ratio", "dimensionless", "1", "mechanics", "poisson", 1.0),
+    )
+    updates: dict[str, dict[str, float]] = {"geology": {}, "mechanics": {}}
+    for name, quantity, unit, section, field_name, factor in bindings:
+        prop = entry.properties.get(name)
+        if prop is None:
+            continue
+        if prop.quantity != quantity or prop.unit != unit:
+            raise ValueError(f"{material_id!r}.{name}: ожидается {quantity} в {unit}")
+        updates[section][field_name] = prop.value * factor
+    if not any(updates.values()):
+        raise ValueError(f"{material_id!r}: нет поддерживаемых свойств общей соли")
+
+    changed = {}
+    for section, values in updates.items():
+        model = getattr(cfg, section)
+        # Validate the complete candidate, then preserve the original fields_set.
+        type(model).model_validate({**model.model_dump(), **values})
+        changed[section] = model.model_copy(update=values)
+    return cfg.model_copy(update=changed)
 
 
 def load(path: str | Path) -> Any:

@@ -1,0 +1,29 @@
+# Model defaults from SaltCav 1.2, not a site-specific rock characterization.
+id: salt-default-1x
+name: SaltCav 1.x bulk salt defaults
+kind: rock_salt
+properties:
+  density:
+    quantity: density
+    value: 2160.0
+    unit: kg/m3
+    range: [2160.0, 2160.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: GeologyConfig.salt_density_kg_m3 default
+  youngs_modulus:
+    quantity: stress
+    value: 2.5e10
+    unit: Pa
+    range: [2.5e10, 2.5e10]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig.youngs_modulus_gpa default, converted from GPa
+  poisson_ratio:
+    quantity: dimensionless
+    value: 0.25
+    unit: '1'
+    range: [0.25, 0.25]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig.poisson default

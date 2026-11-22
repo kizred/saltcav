@@ -125,6 +125,23 @@ def test_fluid_reference_and_direct_model_input_have_equivalent_results(
     assert not np.allclose(linked.volume, control.volume, rtol=1e-6, atol=1e-6)
 
 
+@pytest.mark.parametrize("plume", [True, False], ids=["plume", "column"])
+def test_library_zero_concentration_matches_legacy_default(tmp_path: Path, plume: bool) -> None:
+    legacy_raw = _raw()
+    legacy_raw["leaching"]["plume"] = plume
+    linked_raw = _raw()
+    linked_raw["leaching"].update(plume=plume, injection_fluid_id="water-default-1x")
+    linked_raw["materials_library"] = str(LIBRARY)
+    legacy_cfg = load_config(_write_case(tmp_path, legacy_raw, "legacy-zero.yaml"))
+    linked_cfg = load_config(_write_case(tmp_path, linked_raw, "library-zero.yaml"))
+
+    assert legacy_cfg.leaching.injection_concentration_kg_m3 == 0.0
+    assert linked_cfg.leaching.injection_concentration_kg_m3 == 0.0
+    legacy, linked = simulate(legacy_cfg), simulate(linked_cfg)
+    for name in ("radius", "volume", "concentration", "dissolved_salt", "produced_salt"):
+        np.testing.assert_array_equal(getattr(linked, name), getattr(legacy, name), err_msg=name)
+
+
 def test_legacy_config_without_fluid_reference_keeps_numerical_result(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

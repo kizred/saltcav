@@ -196,7 +196,12 @@ def test_injection_fluid_choice_save_reopen_and_load(win: Any, tmp_path: Path) -
 
     combo = win.forms["leaching"].scalars["injection_fluid_id"].widget
     assert isinstance(combo, qtw.QComboBox)
-    assert [combo.itemData(i) for i in range(combo.count())] == ["", FLUID_ID]
+    assert {combo.itemData(i) for i in range(combo.count())} == {
+        "",
+        FLUID_ID,
+        "nacl-saturated-20c-nist",
+        "water-default-1x",
+    }
     assert combo.itemText(0) == "Без привязки к библиотеке"
     combo.setCurrentIndex(combo.findData(FLUID_ID))
 
