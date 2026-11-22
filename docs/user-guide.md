@@ -24,6 +24,14 @@
 `injection_concentration_kg_m3` сохраняется и имеет приоритет над библиотечным значением.
 Формат каталога описан в [materials-library.md](materials-library.md).
 
+Пример `configs/example_saline_injection.yaml` задаёт короткий расчёт с закачкой
+рассола концентрацией 120 кг/м³. Значения условные и служат для демонстрации,
+для проектирования нужны проверенные данные. Запуск из корня проекта:
+
+```bash
+saltcav run configs/example_saline_injection.yaml
+```
+
 Дополнительно:
 
 - формат данных скважины — [data-format.md](data-format.md);

@@ -1,0 +1,20 @@
+# $schema: ../schema/saltcav-config.schema.json
+# Условный пример закачки рассола, не данные для проектирования.
+name: example-saline-injection
+grid:
+  z_top_m: 900
+  z_bottom_m: 1100
+  nz: 40
+  nphi: 1
+  r_borehole_m: 0.15
+leaching:
+  injection_concentration_kg_m3: 120
+  output_every_days: 5
+schedule:
+  stages:
+    - duration_days: 10
+      mode: direct
+      rate_m3_per_h: 50
+      injection_depth_m: 1090
+      production_depth_m: 1080
+      blanket_depth_m: 1060
