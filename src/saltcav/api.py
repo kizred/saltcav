@@ -60,8 +60,8 @@ Progress = Callable[[float, str], None]
 def apply_bulk_salt(cfg: RunConfig, library: str | Path, material_id: str) -> RunConfig:
     """Явно применить поддерживаемые свойства общей соли из YAML-библиотеки.
 
-    Плотность, модуль Юнга и коэффициент Пуассона заменяют соответствующие поля
-    конфигурации; отсутствующие свойства оставляются как были. Исходный cfg не меняется.
+    Свойства общей соли и полные наборы ползучести заменяют поля конфигурации;
+    отсутствующие свойства и наборы оставляются как были. Исходный cfg не меняется.
     """
     from saltcav.materials import load_library
 
@@ -76,7 +76,7 @@ def apply_bulk_salt(cfg: RunConfig, library: str | Path, material_id: str) -> Ru
         ("youngs_modulus", "stress", "Pa", "mechanics", "youngs_modulus_gpa", 1e-9),
         ("poisson_ratio", "dimensionless", "1", "mechanics", "poisson", 1.0),
     )
-    updates: dict[str, dict[str, float]] = {"geology": {}, "mechanics": {}}
+    updates: dict[str, dict[str, Any]] = {"geology": {}, "mechanics": {}}
     for name, quantity, unit, section, field_name, factor in bindings:
         prop = entry.properties.get(name)
         if prop is None:
@@ -84,6 +84,49 @@ def apply_bulk_salt(cfg: RunConfig, library: str | Path, material_id: str) -> Ru
         if prop.quantity != quantity or prop.unit != unit:
             raise ValueError(f"{material_id!r}.{name}: ожидается {quantity} в {unit}")
         updates[section][field_name] = prop.value * factor
+    creep_groups = (
+        (
+            "creep",
+            (
+                ("creep_a", "strain_rate", "1/s", "a_per_day", 86400.0),
+                ("creep_n", "dimensionless", "1", "n", 1.0),
+                ("creep_q", "activation_energy", "J/mol", "q_kj_per_mol", 0.001),
+            ),
+        ),
+        (
+            "transient",
+            (
+                ("transient_mu", "stress", "Pa", "mu_gpa", 1e-9),
+                ("transient_k0", "dimensionless", "1", "k0", 1.0),
+                ("transient_c", "thermal_expansion", "1/K", "c_per_k", 1.0),
+                ("transient_m", "dimensionless", "1", "m", 1.0),
+                ("transient_alpha_w", "dimensionless", "1", "alpha_w", 1.0),
+                ("transient_beta_w", "dimensionless", "1", "beta_w", 1.0),
+                ("transient_delta", "dimensionless", "1", "delta", 1.0),
+            ),
+        ),
+    )
+    from decimal import Decimal
+
+    from saltcav.core.config import CreepBranchConfig, TransientConfig
+
+    for group, bindings_group in creep_groups:
+        present = [name in entry.properties for name, *_ in bindings_group]
+        if not any(present):
+            continue
+        if not all(present):
+            raise ValueError(f"{material_id!r}: неполный набор {group}")
+        values = {}
+        for name, quantity, unit, field_name, factor in bindings_group:
+            prop = entry.properties[name]
+            if prop.quantity != quantity or prop.unit != unit:
+                raise ValueError(f"{material_id!r}.{name}: ожидается {quantity} в {unit}")
+            values[field_name] = float(Decimal(str(prop.value)) * Decimal(str(factor)))
+        updates["mechanics"][group] = (
+            [CreepBranchConfig.model_validate(values)]
+            if group == "creep"
+            else TransientConfig.model_validate(values)
+        )
     if not any(updates.values()):
         raise ValueError(f"{material_id!r}: нет поддерживаемых свойств общей соли")
 

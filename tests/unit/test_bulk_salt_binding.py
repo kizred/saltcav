@@ -72,3 +72,45 @@ def test_unknown_or_wrong_kind_is_rejected() -> None:
         sc.apply_bulk_salt(cfg, LIBRARY, "missing")
     with pytest.raises(ValueError, match="kind"):
         sc.apply_bulk_salt(cfg, LIBRARY, "test-synthetic-rock")
+
+
+def test_creep_defaults_replace_custom_or_disabled_values() -> None:
+    cfg = _config()
+    custom = cfg.mechanics.model_copy(update={"creep": [], "transient": None})
+    changed = sc.apply_bulk_salt(
+        cfg.model_copy(update={"mechanics": custom}), LIBRARY, "salt-default-1x"
+    )
+    assert changed.mechanics.creep == cfg.mechanics.creep
+    assert changed.mechanics.transient == cfg.mechanics.transient
+    assert custom.creep == [] and custom.transient is None
+
+
+def test_incomplete_creep_group_is_rejected(tmp_path: Path) -> None:
+    entry = yaml.safe_load(
+        (LIBRARY / "materials" / "salt-default-1x.yaml").read_text(encoding="utf-8")
+    )
+    del entry["properties"]["creep_q"]
+    directory = tmp_path / "materials"
+    directory.mkdir()
+    (directory / "salt.yaml").write_text(yaml.safe_dump(entry), encoding="utf-8")
+    with pytest.raises(ValueError, match="creep"):
+        sc.apply_bulk_salt(_config(), tmp_path, "salt-default-1x")
+
+
+def test_creep_law_matches_legacy_rates() -> None:
+    from saltcav.mechanics.run import creep_law
+
+    cfg = _config()
+    linked = sc.apply_bulk_salt(cfg, LIBRARY, "salt-default-1x")
+    stress = np.array([5e6, 12e6, 20e6])
+    temperature = np.array([300.0, 320.0, 340.0])
+    zeta = np.array([0.0, 0.001, 0.01])
+    before, after = creep_law(cfg.mechanics), creep_law(linked.mechanics)
+    for x, y in zip(
+        before.steady(stress, temperature), after.steady(stress, temperature), strict=True
+    ):
+        np.testing.assert_array_equal(x, y)
+    np.testing.assert_array_equal(
+        before.transient.factor(stress, temperature, zeta),
+        after.transient.factor(stress, temperature, zeta),
+    )
