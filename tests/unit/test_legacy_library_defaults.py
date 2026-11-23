@@ -29,7 +29,11 @@ def test_saturated_viscosity_is_explicitly_extrapolated() -> None:
     assert prop.unit == "Pa*s"
     assert prop.value == (1.990 + (1.990 - 1.821) * 0.4 / 2) / 1000
     assert prop.range == (prop.value, prop.value)
-    assert "extrapolation" in prop.source.location
+    assert "method: extrapolation" in prop.source.location
+    assert "24 mass% = 1.821 mPa s" in prop.source.location
+    assert "26 mass% = 1.990 mPa s" in prop.source.location
+    assert "0.0012 mPa s" in prop.source.location
+    assert "errors are unknown" in prop.source.location
 
 
 def test_calculation_defaults_read_bundled_library_and_preserve_overrides(tmp_path: Path) -> None:

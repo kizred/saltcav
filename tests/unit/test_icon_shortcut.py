@@ -1,7 +1,7 @@
 """Значок программы и ярлык окна."""
 
-import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
 
 import pytest
 
@@ -29,12 +29,12 @@ def test_windows_script() -> None:
     assert "O''Brien" in s  # кавычка экранирована для PowerShell
 
 
-@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="ярлык Linux")
 def test_linux_shortcut(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import saltcav.shortcut as sh
 
+    monkeypatch.setattr(sh, "sys", SimpleNamespace(platform="linux"))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setattr(sh, "gui_executable", lambda: Path("/env/bin/saltcav-gui"))
+    monkeypatch.setattr(sh, "gui_executable", lambda: PurePosixPath("/env/bin/saltcav-gui"))
     (tmp_path / "Desktop").mkdir()
     made = sh.create_shortcuts(workdir=tmp_path)
     assert len(made) == 2

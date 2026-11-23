@@ -34,4 +34,11 @@ properties:
     range: [0.0020238, 0.0020238]
     source:
       reference: CRC Handbook of Chemistry and Physics, 84th ed. (2003–2004), https://fap.if.usp.br/~jhsevero/Fisica_Experimental_C_Semestral_2022/crc.pdf; Cohen-Adad and Lorimer, IUPAC SDS-47, https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
-      location: CRC p. 8-77, NaCl viscosity at 20 °C and 24% (1.821 mPa s), 26% (1.990 mPa s); linear extrapolation to 26.40% saturation from SDS-47 table 9 p. 94. Estimate, not a measured saturation value; point range is not uncertainty.
+      location: |
+        method: extrapolation
+        CRC p. 8-77, NaCl at 20 °C: 24 mass% = 1.821 mPa s; 26 mass% = 1.990 mPa s.
+        Linear extrapolation to 26.40 mass% saturation (SDS-47, table 9, p. 94).
+        Rounding error estimate: at most 0.0012 mPa s, assuming rounding to the displayed
+        precision in both CRC values and saturation concentration. Model and measurement
+        errors are unknown; this is not a total uncertainty or a measured saturation value.
+        The point range is not an uncertainty interval.
