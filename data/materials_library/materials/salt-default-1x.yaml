@@ -1,0 +1,109 @@
+# Model defaults from SaltCav 1.2, not a site-specific rock characterization.
+id: salt-default-1x
+name: SaltCav 1.x bulk salt defaults
+kind: rock_salt
+properties:
+  density:
+    quantity: density
+    value: 2160.0
+    unit: kg/m3
+    range: [2160.0, 2160.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: GeologyConfig.salt_density_kg_m3 default
+  youngs_modulus:
+    quantity: stress
+    value: 2.5e10
+    unit: Pa
+    range: [2.5e10, 2.5e10]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig.youngs_modulus_gpa default, converted from GPa
+  poisson_ratio:
+    quantity: dimensionless
+    value: 0.25
+    unit: '1'
+    range: [0.25, 0.25]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig.poisson default
+  creep_a:
+    quantity: strain_rate
+    value: 2.0833333333333334e-06
+    unit: '1/s'
+    range: [2.0833333333333334e-06, 2.0833333333333334e-06]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  creep_n:
+    quantity: dimensionless
+    value: 5.0
+    unit: '1'
+    range: [5.0, 5.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  creep_q:
+    quantity: activation_energy
+    value: 54000.0
+    unit: 'J/mol'
+    range: [54000.0, 54000.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_mu:
+    quantity: stress
+    value: 12400000000.0
+    unit: 'Pa'
+    range: [12400000000.0, 12400000000.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_k0:
+    quantity: dimensionless
+    value: 627500.0
+    unit: '1'
+    range: [627500.0, 627500.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_c:
+    quantity: thermal_expansion
+    value: 0.009198
+    unit: '1/K'
+    range: [0.009198, 0.009198]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_m:
+    quantity: dimensionless
+    value: 3.0
+    unit: '1'
+    range: [3.0, 3.0]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_alpha_w:
+    quantity: dimensionless
+    value: -17.37
+    unit: '1'
+    range: [-17.37, -17.37]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_beta_w:
+    quantity: dimensionless
+    value: -7.738
+    unit: '1'
+    range: [-7.738, -7.738]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI
+  transient_delta:
+    quantity: dimensionless
+    value: 0.58
+    unit: '1'
+    range: [0.58, 0.58]
+    source:
+      reference: SaltCav 1.2.0, src/saltcav/core/config.py
+      location: MechanicsConfig creep and TransientConfig defaults, converted to SI

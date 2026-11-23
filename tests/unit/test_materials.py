@@ -37,8 +37,8 @@ def _assert_error(root: Path, path: Path, field: str) -> str:
 def test_loads_synthetic_material_and_fluid_fixtures() -> None:
     library = load_library(FIXTURES)
 
-    assert set(library.materials) == {"test-synthetic-rock"}
-    assert set(library.fluids) == {"test-synthetic-fluid"}
+    assert {"test-synthetic-rock", "jintan-fusi-layer-1"} <= set(library.materials)
+    assert {"test-synthetic-fluid", "nacl-saturated-20c-nist"} <= set(library.fluids)
     rock = library.materials["test-synthetic-rock"]
     fluid = library.fluids["test-synthetic-fluid"]
     assert rock.kind == "synthetic_rock"
@@ -46,6 +46,25 @@ def test_loads_synthetic_material_and_fluid_fixtures() -> None:
     assert rock.properties["density"].value == 2000.0
     assert fluid.properties["dynamic_viscosity"].range == (0.001, 0.1)
     assert "not a physical source" in fluid.properties["density"].source.reference
+
+
+def test_nist_saturated_brine_point() -> None:
+    entry = load_library(FIXTURES).fluids["nacl-saturated-20c-nist"]
+    assert entry.properties["temperature"].value == 293.15
+    assert entry.properties["density"].value == 1200.4
+    concentration = entry.properties["mass_concentration"]
+    assert concentration.value == pytest.approx(0.2640 * entry.properties["density"].value)
+    assert concentration.range == (concentration.value, concentration.value)
+
+
+def test_jintan_log_density_point() -> None:
+    entry = load_library(FIXTURES).materials["jintan-fusi-layer-1"]
+    density = entry.properties["density"]
+    assert density.value == 2060.0
+    assert density.unit == "kg/m3"
+    assert density.range == (2060.0, 2060.0)
+    assert density.source.location is not None
+    assert "Table 3, layer 1" in density.source.location
 
 
 @pytest.mark.parametrize(

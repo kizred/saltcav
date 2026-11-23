@@ -30,7 +30,8 @@ def bundled_root() -> Path:
 
 def bundled_materials_library() -> Path:
     """Корень библиотеки, поставляемой рядом с программой только для чтения."""
-    return bundled_root() / "data" / "materials_library"
+    root = bundled_root() / "data" / "materials_library"
+    return root if root.is_dir() else Path(__file__).resolve().parent / "_materials_library"
 
 
 def license_text() -> str:

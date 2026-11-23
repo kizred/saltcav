@@ -1,0 +1,44 @@
+# Saturated NaCl solution at 20 °C; point data, not a temperature-dependent model.
+id: nacl-saturated-20c-nist
+name: Saturated NaCl solution at 20 °C (NIST)
+kind: nacl_brine
+properties:
+  temperature:
+    quantity: temperature
+    value: 293.15
+    unit: K
+    range: [293.15, 293.15]
+    source:
+      reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, 20 °C row
+  density:
+    quantity: density
+    value: 1200.4
+    unit: kg/m3
+    range: [1200.4, 1200.4]
+    source:
+      reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, 20 °C row; 1.2004 g/cm3 converted to SI
+  mass_concentration:
+    quantity: mass_concentration
+    value: 316.9056
+    unit: kg/m3
+    range: [316.9056, 316.9056]
+    source:
+      reference: Cohen-Adad and Lorimer, Alkali Metal and Ammonium Chlorides in Water, IUPAC Solubility Data Series 47 (1991), https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: Table 9, p. 94, 20 °C row; calculated as 0.2640 times 1200.4 kg/m3
+  dynamic_viscosity:
+    quantity: dynamic_viscosity
+    value: 0.0020238
+    unit: Pa*s
+    range: [0.0020238, 0.0020238]
+    source:
+      reference: CRC Handbook of Chemistry and Physics, 84th ed. (2003–2004), https://fap.if.usp.br/~jhsevero/Fisica_Experimental_C_Semestral_2022/crc.pdf; Cohen-Adad and Lorimer, IUPAC SDS-47, https://srdata.nist.gov/solubility/IUPAC/SDS-47/SDS-47.pdf
+      location: |
+        method: extrapolation
+        CRC p. 8-77, NaCl at 20 °C: 24 mass% = 1.821 mPa s; 26 mass% = 1.990 mPa s.
+        Linear extrapolation to 26.40 mass% saturation (SDS-47, table 9, p. 94).
+        Rounding error estimate: at most 0.0012 mPa s, assuming rounding to the displayed
+        precision in both CRC values and saturation concentration. Model and measurement
+        errors are unknown; this is not a total uncertainty or a measured saturation value.
+        The point range is not an uncertainty interval.

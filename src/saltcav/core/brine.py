@@ -28,36 +28,32 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from saltcav.legacy_defaults import value
+
 FloatArray = NDArray[np.float64]
 
 KELVIN = 273.15
 
-# Плотность чистой воды при 1 атм, кг/м³ (CRC).
+# Values from the bundled 1.x material library; calculation formulas are unchanged.
 _T_WATER = np.array([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], dtype=float)
-_RHO_WATER = np.array(
-    [999.84, 999.70, 998.21, 995.65, 992.22, 988.04, 983.20, 977.76, 971.79, 965.31, 958.35]
-)
-
-# Растворимость NaCl, массовая доля насыщенного раствора (CRC).
 _T_SOL = np.array([0, 10, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100], dtype=float)
-_W_SAT = (
-    np.array([26.28, 26.32, 26.41, 26.45, 26.52, 26.67, 26.84, 27.03, 27.25, 27.50, 27.78, 28.05])
-    / 100.0
-)
-
-# Плотность раствора NaCl при 20 °C в зависимости от массовой доли, кг/м³ (CRC).
 _W_TAB = np.array([0.0, 0.01, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18,
                    0.20, 0.22, 0.24, 0.26])  # fmt: skip
-_RHO20_TAB = np.array([998.21, 1005.3, 1012.5, 1026.8, 1041.3, 1055.9, 1070.7, 1085.7,
-                       1100.9, 1116.2, 1131.9, 1147.8, 1164.0, 1180.4, 1197.2])  # fmt: skip
 
-# Вязкость воды, уравнение Фогеля: μ = A·10^(B/(T−C)), T в К.
-_VOGEL_A = 2.414e-5  # Па·с
-_VOGEL_B = 247.8  # К
-_VOGEL_C = 140.0  # К
 
-# Коэффициент диффузии NaCl в воде при 25 °C (разбавленный раствор), м²/с.
-D_NACL_25C = 1.61e-9
+def _legacy(name: str, quantity: str, unit: str) -> float:
+    return value("fluids", "nacl-default-1x", name, quantity, unit)
+
+
+_RHO_WATER = np.array([_legacy(f"water_density_{int(t)}", "density", "kg/m3") for t in _T_WATER])
+_W_SAT = np.array([_legacy(f"saturation_{int(t)}", "dimensionless", "1") for t in _T_SOL])
+_RHO20_TAB = np.array(
+    [_legacy(f"brine_density_20_{round(w * 100)}", "density", "kg/m3") for w in _W_TAB]
+)
+_VOGEL_A = value("fluids", "water-default-1x", "vogel_a", "dynamic_viscosity", "Pa*s")
+_VOGEL_B = value("fluids", "water-default-1x", "vogel_b", "temperature", "K")
+_VOGEL_C = value("fluids", "water-default-1x", "vogel_c", "temperature", "K")
+D_NACL_25C = value("fluids", "water-default-1x", "nacl_diffusivity_25c", "diffusivity", "m2/s")
 
 
 def _check_temperature(t: FloatArray) -> None:

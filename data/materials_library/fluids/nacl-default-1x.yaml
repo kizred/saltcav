@@ -1,0 +1,384 @@
+id: nacl-default-1x
+name: NaCl legacy 1.x model tables
+kind: nacl_brine_tables
+properties:
+  water_density_0:
+    quantity: density
+    value: 999.84
+    unit: kg/m3
+    range:
+    - 999.84
+    - 999.84
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 0 ?C
+  water_density_10:
+    quantity: density
+    value: 999.7
+    unit: kg/m3
+    range:
+    - 999.7
+    - 999.7
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 10 ?C
+  water_density_20:
+    quantity: density
+    value: 998.21
+    unit: kg/m3
+    range:
+    - 998.21
+    - 998.21
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 20 ?C
+  water_density_30:
+    quantity: density
+    value: 995.65
+    unit: kg/m3
+    range:
+    - 995.65
+    - 995.65
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 30 ?C
+  water_density_40:
+    quantity: density
+    value: 992.22
+    unit: kg/m3
+    range:
+    - 992.22
+    - 992.22
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 40 ?C
+  water_density_50:
+    quantity: density
+    value: 988.04
+    unit: kg/m3
+    range:
+    - 988.04
+    - 988.04
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 50 ?C
+  water_density_60:
+    quantity: density
+    value: 983.2
+    unit: kg/m3
+    range:
+    - 983.2
+    - 983.2
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 60 ?C
+  water_density_70:
+    quantity: density
+    value: 977.76
+    unit: kg/m3
+    range:
+    - 977.76
+    - 977.76
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 70 ?C
+  water_density_80:
+    quantity: density
+    value: 971.79
+    unit: kg/m3
+    range:
+    - 971.79
+    - 971.79
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 80 ?C
+  water_density_90:
+    quantity: density
+    value: 965.31
+    unit: kg/m3
+    range:
+    - 965.31
+    - 965.31
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 90 ?C
+  water_density_100:
+    quantity: density
+    value: 958.35
+    unit: kg/m3
+    range:
+    - 958.35
+    - 958.35
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: water_density, axis 100 ?C
+  saturation_0:
+    quantity: dimensionless
+    value: 0.26280000000000003
+    unit: '1'
+    range:
+    - 0.26280000000000003
+    - 0.26280000000000003
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 0 ?C
+  saturation_10:
+    quantity: dimensionless
+    value: 0.2632
+    unit: '1'
+    range:
+    - 0.2632
+    - 0.2632
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 10 ?C
+  saturation_20:
+    quantity: dimensionless
+    value: 0.2641
+    unit: '1'
+    range:
+    - 0.2641
+    - 0.2641
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 20 ?C
+  saturation_25:
+    quantity: dimensionless
+    value: 0.2645
+    unit: '1'
+    range:
+    - 0.2645
+    - 0.2645
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 25 ?C
+  saturation_30:
+    quantity: dimensionless
+    value: 0.2652
+    unit: '1'
+    range:
+    - 0.2652
+    - 0.2652
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 30 ?C
+  saturation_40:
+    quantity: dimensionless
+    value: 0.2667
+    unit: '1'
+    range:
+    - 0.2667
+    - 0.2667
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 40 ?C
+  saturation_50:
+    quantity: dimensionless
+    value: 0.26839999999999997
+    unit: '1'
+    range:
+    - 0.26839999999999997
+    - 0.26839999999999997
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 50 ?C
+  saturation_60:
+    quantity: dimensionless
+    value: 0.2703
+    unit: '1'
+    range:
+    - 0.2703
+    - 0.2703
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 60 ?C
+  saturation_70:
+    quantity: dimensionless
+    value: 0.2725
+    unit: '1'
+    range:
+    - 0.2725
+    - 0.2725
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 70 ?C
+  saturation_80:
+    quantity: dimensionless
+    value: 0.275
+    unit: '1'
+    range:
+    - 0.275
+    - 0.275
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 80 ?C
+  saturation_90:
+    quantity: dimensionless
+    value: 0.2778
+    unit: '1'
+    range:
+    - 0.2778
+    - 0.2778
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 90 ?C
+  saturation_100:
+    quantity: dimensionless
+    value: 0.2805
+    unit: '1'
+    range:
+    - 0.2805
+    - 0.2805
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: saturation, axis 100 ?C
+  brine_density_20_0:
+    quantity: density
+    value: 998.21
+    unit: kg/m3
+    range:
+    - 998.21
+    - 998.21
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 0 mass percent at 20 ?C
+  brine_density_20_1:
+    quantity: density
+    value: 1005.3
+    unit: kg/m3
+    range:
+    - 1005.3
+    - 1005.3
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 1 mass percent at 20 ?C
+  brine_density_20_2:
+    quantity: density
+    value: 1012.5
+    unit: kg/m3
+    range:
+    - 1012.5
+    - 1012.5
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 2 mass percent at 20 ?C
+  brine_density_20_4:
+    quantity: density
+    value: 1026.8
+    unit: kg/m3
+    range:
+    - 1026.8
+    - 1026.8
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 4 mass percent at 20 ?C
+  brine_density_20_6:
+    quantity: density
+    value: 1041.3
+    unit: kg/m3
+    range:
+    - 1041.3
+    - 1041.3
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 6 mass percent at 20 ?C
+  brine_density_20_8:
+    quantity: density
+    value: 1055.9
+    unit: kg/m3
+    range:
+    - 1055.9
+    - 1055.9
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 8 mass percent at 20 ?C
+  brine_density_20_10:
+    quantity: density
+    value: 1070.7
+    unit: kg/m3
+    range:
+    - 1070.7
+    - 1070.7
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 10 mass percent at 20 ?C
+  brine_density_20_12:
+    quantity: density
+    value: 1085.7
+    unit: kg/m3
+    range:
+    - 1085.7
+    - 1085.7
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 12 mass percent at 20 ?C
+  brine_density_20_14:
+    quantity: density
+    value: 1100.9
+    unit: kg/m3
+    range:
+    - 1100.9
+    - 1100.9
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 14 mass percent at 20 ?C
+  brine_density_20_16:
+    quantity: density
+    value: 1116.2
+    unit: kg/m3
+    range:
+    - 1116.2
+    - 1116.2
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 16 mass percent at 20 ?C
+  brine_density_20_18:
+    quantity: density
+    value: 1131.9
+    unit: kg/m3
+    range:
+    - 1131.9
+    - 1131.9
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 18 mass percent at 20 ?C
+  brine_density_20_20:
+    quantity: density
+    value: 1147.8
+    unit: kg/m3
+    range:
+    - 1147.8
+    - 1147.8
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 20 mass percent at 20 ?C
+  brine_density_20_22:
+    quantity: density
+    value: 1164.0
+    unit: kg/m3
+    range:
+    - 1164.0
+    - 1164.0
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 22 mass percent at 20 ?C
+  brine_density_20_24:
+    quantity: density
+    value: 1180.4
+    unit: kg/m3
+    range:
+    - 1180.4
+    - 1180.4
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 24 mass percent at 20 ?C
+  brine_density_20_26:
+    quantity: density
+    value: 1197.2
+    unit: kg/m3
+    range:
+    - 1197.2
+    - 1197.2
+    source:
+      reference: SaltCav 1.2, src/saltcav/core/brine.py; legacy model values, CRC attribution not verified
+      location: brine_density_20, axis 26 mass percent at 20 ?C

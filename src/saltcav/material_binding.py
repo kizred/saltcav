@@ -312,6 +312,10 @@ def _resolve_injection_fluid(
             config_path, "injection_fluid_id", f"неизвестный id рабочей среды {fluid_id!r}"
         )
 
+    if library.fluids[fluid_id].kind == "nacl_brine_tables":
+        raise InjectionFluidError(
+            config_path, "injection_fluid_id", f"{fluid_id!r}: таблицы не задают среду закачки"
+        )
     binding = _INJECTION_FLUID_PROPERTY
     if binding.field_name in leaching.model_fields_set:
         return leaching

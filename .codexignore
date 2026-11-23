@@ -1,0 +1,9 @@
+.venv/
+*.lock
+dist/
+build/
+*.vtk
+*.stl
+*.obj
+__pycache__/
+.pytest_cache/

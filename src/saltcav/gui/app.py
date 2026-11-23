@@ -535,6 +535,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.statusBar().showMessage(str(exc), 10000)
                 else:
                     for fluid_id, entry in sorted(library.fluids.items()):
+                        if entry.kind == "nacl_brine_tables":
+                            continue
                         prop = entry.properties.get("mass_concentration")
                         if prop is not None and (
                             prop.quantity != "mass_concentration" or prop.unit != "kg/m3"

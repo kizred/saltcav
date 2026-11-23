@@ -87,6 +87,13 @@ def test_rock_id_cannot_be_assigned_to_injection_fluid(tmp_path: Path) -> None:
     assert "fluids" in message
 
 
+@pytest.mark.parametrize("fluid_id", ["nacl-reference-tables", "nacl-default-1x"])
+def test_property_table_is_not_an_injection_fluid(tmp_path: Path, fluid_id: str) -> None:
+    path = _write_case(tmp_path, _linked_raw(fluid_id), "table.yaml")
+    with pytest.raises(InjectionFluidError, match="таблицы не задают среду закачки"):
+        load_config(path)
+
+
 @pytest.mark.parametrize("explicit_value", [25.0, 0.0])
 def test_explicit_injection_concentration_has_priority(
     tmp_path: Path, explicit_value: float
@@ -123,6 +130,23 @@ def test_fluid_reference_and_direct_model_input_have_equivalent_results(
 
     control = _simulate_with_direct_c_in(direct_cfg, 0.0, monkeypatch)
     assert not np.allclose(linked.volume, control.volume, rtol=1e-6, atol=1e-6)
+
+
+@pytest.mark.parametrize("plume", [True, False], ids=["plume", "column"])
+def test_library_zero_concentration_matches_legacy_default(tmp_path: Path, plume: bool) -> None:
+    legacy_raw = _raw()
+    legacy_raw["leaching"]["plume"] = plume
+    linked_raw = _raw()
+    linked_raw["leaching"].update(plume=plume, injection_fluid_id="water-default-1x")
+    linked_raw["materials_library"] = str(LIBRARY)
+    legacy_cfg = load_config(_write_case(tmp_path, legacy_raw, "legacy-zero.yaml"))
+    linked_cfg = load_config(_write_case(tmp_path, linked_raw, "library-zero.yaml"))
+
+    assert legacy_cfg.leaching.injection_concentration_kg_m3 == 0.0
+    assert linked_cfg.leaching.injection_concentration_kg_m3 == 0.0
+    legacy, linked = simulate(legacy_cfg), simulate(linked_cfg)
+    for name in ("radius", "volume", "concentration", "dissolved_salt", "produced_salt"):
+        np.testing.assert_array_equal(getattr(linked, name), getattr(legacy, name), err_msg=name)
 
 
 def test_legacy_config_without_fluid_reference_keeps_numerical_result(

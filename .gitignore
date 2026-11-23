@@ -33,3 +33,5 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+.sc021-*/
+sc021-*.log
