@@ -44,6 +44,8 @@ dev = [
     "types-PyYAML",
     "jsonschema>=4.18",
     "pre-commit>=3.7",
+    "build",
+    "hatchling",
 ]
 
 [project.scripts]
