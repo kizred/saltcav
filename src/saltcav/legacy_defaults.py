@@ -16,4 +16,4 @@ def value(category: str, entry: str, name: str, quantity: str, unit: str) -> flo
     prop = entries[entry].properties[name]
     if (prop.quantity, prop.unit) != (quantity, unit):
         raise ValueError(f"{entry}.{name}: expected {quantity} in {unit}")
-    return prop.value
+    return float(prop.value)
